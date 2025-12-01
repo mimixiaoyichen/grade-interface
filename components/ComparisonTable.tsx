@@ -39,7 +39,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate }) => 
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 font-medium w-1/4">Baseline (Public Info)</th>
+                  <th className="px-6 py-3 font-medium w-1/4">LLM-Generated</th>
                   <th className="px-6 py-3 font-medium w-1/4">Transcript Modification</th>
                   <th className="px-6 py-3 font-medium w-1/4">Evidence (Transcript)</th>
                   <th className="px-6 py-3 font-medium w-1/4">Public Support</th>

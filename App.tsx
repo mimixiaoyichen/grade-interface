@@ -439,7 +439,7 @@ function App() {
   // --- Render Helpers ---
 
   const renderStepIndicator = () => {
-    const steps = ["Public Info", "Founder Input", "Review Baseline", "Transcript", "Discovery (P1)", "Feedback (P2)"];
+    const steps = ["Pre-interview", "Founder Input", "Review Baseline", "Transcript", "Discovery (P1)", "Feedback (P2)"];
 
     const availability = [
       true,
@@ -718,7 +718,7 @@ function App() {
 
               {/* Goal / Job */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Goal (Job To Be Done)</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Goal</label>
                 <textarea
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
                   rows={2}

@@ -38,7 +38,7 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 animate-fade-in-up">
       <div className="mb-6 border-b border-gray-200 pb-4 flex justify-between items-start">
         <div>
-           <h2 className="text-2xl font-bold text-gray-800">3. Review Baseline Statement</h2>
+           <h2 className="text-2xl font-bold text-gray-800">3. Review LLM-Generated Statement</h2>
            <p className="text-gray-500 mt-1">This statement was generated from Public Information. Review and edit it before comparing it to the transcript.</p>
         </div>
         <div className="bg-blue-50 text-blue-800 px-3 py-1 rounded text-xs font-bold uppercase tracking-wide">
@@ -82,7 +82,7 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Goal (Job to be done)</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Goal/ Aspiration</label>
             <textarea 
               value={data.JOB_TO_BE_DONE}
               onChange={(e) => handleChange('JOB_TO_BE_DONE', e.target.value)}
