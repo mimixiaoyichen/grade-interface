@@ -46,6 +46,7 @@ function App() {
   // Step 3: Baseline
   const [baselineStatement, setBaselineStatement] = useState<BaselineStatement | null>(null);
   const [baselineNotes, setBaselineNotes] = useState<string>('');
+  const [baselineSource, setBaselineSource] = useState<string>('');
 
   // Step 4: Transcript Part 1
   const [transcript, setTranscript] = useState<string>('');
@@ -76,6 +77,7 @@ function App() {
       setCompanyUrl('');
       setFounderInput(INITIAL_STATEMENT);
       setBaselineStatement(null);
+      setBaselineSource('');
       setTranscript('');
       setSplitData(null);
       setPart1Result(null);
@@ -101,13 +103,23 @@ function App() {
 
   // Step 1 -> Step 2
   const generateBaseline = async () => {
-    if (!publicInfo.trim()) return setErrorMsg("Public information is required.");
+    const trimmedPublicInfo = publicInfo.trim();
+    if (!trimmedPublicInfo) return setErrorMsg("Public information is required.");
+
+    // If we already generated from this exact public info, just continue without re-calling the model
+    if (baselineStatement && baselineSource === trimmedPublicInfo) {
+      setErrorMsg('');
+      setStatus(AppStatus.SUCCESS);
+      setStep(WizardStep.FOUNDER_INPUT);
+      return;
+    }
     
     setStatus(AppStatus.PROCESSING);
     setErrorMsg('');
     try {
-      const res = await generateBaselineStatement(publicInfo);
+      const res = await generateBaselineStatement(trimmedPublicInfo);
       setBaselineStatement(res);
+      setBaselineSource(trimmedPublicInfo);
       // Clear downstream data that depends on baseline
       setComparisonRows([]); 
       setStatus(AppStatus.SUCCESS);
@@ -270,6 +282,8 @@ function App() {
     );
   };
 
+  const isBaselineCurrent = Boolean(baselineStatement && baselineSource === publicInfo.trim());
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
       <div className="bg-white p-4 shadow-sm border-b border-gray-200 sticky top-0 z-20">
@@ -364,7 +378,11 @@ function App() {
                 disabled={status === AppStatus.PROCESSING}
                 className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50"
               >
-                {status === AppStatus.PROCESSING ? 'Analyzing Public Info...' : 'Generate Baseline →'}
+                {status === AppStatus.PROCESSING 
+                  ? 'Analyzing Public Info...' 
+                  : isBaselineCurrent 
+                    ? 'Continue →' 
+                    : 'Generate Baseline →'}
               </button>
             </div>
           </div>

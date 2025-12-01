@@ -57,29 +57,28 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
               value={data.SOLUTION}
               onChange={(e) => handleChange('SOLUTION', e.target.value)}
               className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-              rows={2}
+              rows={5}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Customer Segment</label>
-              <textarea 
-                value={data.CUSTOMER_SEGMENT}
-                onChange={(e) => handleChange('CUSTOMER_SEGMENT', e.target.value)}
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-                rows={3}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Context</label>
-              <textarea 
-                value={data.LIFE_BUSINESS_CONTEXT}
-                onChange={(e) => handleChange('LIFE_BUSINESS_CONTEXT', e.target.value)}
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-                rows={3}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Customer Segment</label>
+            <textarea 
+              value={data.CUSTOMER_SEGMENT}
+              onChange={(e) => handleChange('CUSTOMER_SEGMENT', e.target.value)}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+              rows={5}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Context</label>
+            <textarea 
+              value={data.LIFE_BUSINESS_CONTEXT}
+              onChange={(e) => handleChange('LIFE_BUSINESS_CONTEXT', e.target.value)}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+              rows={5}
+            />
           </div>
 
           <div>
@@ -88,7 +87,7 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
               value={data.JOB_TO_BE_DONE}
               onChange={(e) => handleChange('JOB_TO_BE_DONE', e.target.value)}
               className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-              rows={2}
+              rows={5}
             />
           </div>
 
