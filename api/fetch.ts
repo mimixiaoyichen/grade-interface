@@ -18,6 +18,9 @@ const cleanHtml = (html: string): string => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const url = (req.query.url as string || '').trim();
   if (!url) return res.status(400).json({ error: 'url required' });
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ error: 'OPENAI_API_KEY is missing on the server.' });
+  }
 
   try {
     const pageResp = await fetch(url);
@@ -28,16 +31,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cleaned = cleanHtml(rawHtml);
     const truncated = cleaned.slice(0, 6000);
 
-    const summaryResp = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: 'You summarize public website content succinctly with key facts and customer/problem context.' },
-        { role: 'user', content: `URL: ${url}\n\nContent (truncated):\n${truncated}\n\nSummarize product/service, target customer, value props, and problem statement.` }
-      ],
-      max_tokens: 400
-    });
-
-    const summary = summaryResp.choices?.[0]?.message?.content || 'No summary generated.';
+    let summary = 'No summary generated.';
+    try {
+      const summaryResp = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You summarize public website content succinctly with key facts and customer/problem context.' },
+          { role: 'user', content: `URL: ${url}\n\nContent (truncated):\n${truncated}\n\nSummarize product/service, target customer, value props, and problem statement.` }
+        ],
+        max_tokens: 400
+      });
+      summary = summaryResp.choices?.[0]?.message?.content || summary;
+    } catch (summaryErr: any) {
+      console.error('Summary generation failed:', summaryErr);
+      return res.status(200).json({
+        summary: `Summary failed: ${summaryErr?.message || 'unknown error'}`,
+        cleaned,
+        sourceUrl: url
+      });
+    }
 
     res.status(200).json({
       summary,

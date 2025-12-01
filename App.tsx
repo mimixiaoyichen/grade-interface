@@ -58,6 +58,7 @@ function App() {
 
   // UI helpers
   const [isStatementOpen, setIsStatementOpen] = useState(true);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // --- Logic & Handlers ---
 
@@ -322,6 +323,53 @@ function App() {
 
   const isBaselineCurrent = Boolean(baselineStatement && baselineSource === publicInfo.trim());
 
+  const renderGuideModal = () => {
+    if (!isGuideOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 relative">
+          <button
+            onClick={() => setIsGuideOpen(false)}
+            className="absolute right-3 top-3 text-gray-400 hover:text-gray-700"
+            aria-label="Close guide"
+          >
+            ×
+          </button>
+          <h2 className="text-2xl font-bold mb-3 text-gray-900">Interview Training Guide</h2>
+          <p className="text-sm text-gray-600 mb-4">Definitions you can reference at any step.</p>
+          <div className="space-y-3 text-sm text-gray-800">
+            <div>
+              <strong>Customer</strong>: Who experiences the problem and benefits (e.g., “IT admins at mid-market SaaS companies”).
+            </div>
+            <div>
+              <strong>Context</strong>: Where/when the problem shows up (e.g., “during onboarding when provisioning accounts”).
+            </div>
+            <div>
+              <strong>Goal / Job To Be Done</strong>: What they are trying to achieve (e.g., “launch a new user within 5 minutes without errors”).
+            </div>
+            <div>
+              <strong>Barrier</strong>: What blocks them (e.g., “manual ticket routing causes delays; data is siloed; compliance risk”).
+            </div>
+            <div>
+              <strong>Evidence</strong>: Quotes from transcript or public info that support a claim.
+            </div>
+            <div>
+              <strong>Baseline</strong>: The public “truth source” you generated before founder input; use it to judge changes.
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => setIsGuideOpen(false)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
       <div className="bg-white p-4 shadow-sm border-b border-gray-200 sticky top-0 z-20">
@@ -331,7 +379,12 @@ function App() {
              <h1 className="text-xl font-bold text-gray-800">Founder Problem Analyst</h1>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-             {/* API Key managed via environment variable */}
+             <button
+               onClick={() => setIsGuideOpen(true)}
+               className="text-sm font-semibold text-blue-600 hover:text-blue-800 underline"
+             >
+               Interview Guide
+             </button>
           </div>
         </div>
       </div>
@@ -349,6 +402,7 @@ function App() {
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 pb-32">
+        {renderGuideModal()}
         {renderStepIndicator()}
         
         {/* Error Message */}
@@ -362,8 +416,20 @@ function App() {
         {/* STEP 1: PUBLIC INFO */}
         {step === WizardStep.PUBLIC_INFO && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
-            <h2 className="text-2xl font-bold mb-2">1. Public Information</h2>
-            <p className="text-gray-500 mb-6 text-sm">Provide the "Public Truth" baseline. You can paste text/files or use Google Search.</p>
+            <div className="flex justify-between items-start gap-2">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">1. Public Information</h2>
+                <p className="text-gray-500 text-sm">Provide the "Public Truth" baseline. You can paste text/files or use Google Search.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGuideOpen(true)}
+                className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded hover:bg-blue-100 font-semibold"
+              >
+                View Guide
+              </button>
+            </div>
+            
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
               {/* Option A: URL */}
