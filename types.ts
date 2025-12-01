@@ -67,18 +67,12 @@ export interface ComparisonResult {
 }
 
 // Raw responses
-export interface GeminiAnalysisResponse {
+export interface AIAnalysisResponse {
   customers: { description: string; quotes: string[]; publicEvidence: string; isSupportedByPublic: boolean }[];
   contexts: { description: string; quotes: string[]; publicEvidence: string; isSupportedByPublic: boolean }[];
   goals: { description: string; quotes: string[]; publicEvidence: string; isSupportedByPublic: boolean }[];
   barriers: { description: string; quotes: string[]; publicEvidence: string; isSupportedByPublic: boolean }[];
   finalStatement: string;
-}
-
-export interface GeminiSplitResponse {
-  part1: string;
-  part2: string;
-  reasoning: string;
 }
 
 export enum AppStatus {

@@ -1,5 +1,5 @@
 {
   "name": "Founder Statement Analyst",
-  "description": "A tool to analyze founder interview transcripts, extract problem statements, and facilitate verification using the Gemini API.",
+  "description": "A tool to analyze founder interview transcripts, extract problem statements, and facilitate verification using the OpenAI GPT-4o API.",
   "requestFramePermissions": []
 }

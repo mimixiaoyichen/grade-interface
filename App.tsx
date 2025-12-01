@@ -10,12 +10,12 @@ import {
   generateBaselineStatement, 
   generateComparison,
   fetchPublicInfoFromUrl
-} from './services/geminiService';
+} from './services/aiService';
 import { 
   AppStatus, 
   StatementResult, 
   TranscriptSplit, 
-  GeminiAnalysisResponse,
+  AIAnalysisResponse,
   WizardStep,
   BaselineStatement,
   ComparisonRow
@@ -183,7 +183,6 @@ function App() {
     
     try {
       // Analyze Part 1 (Discovery)
-      // Format structured founder input into string context
       const founderContextString = `
         Solution: ${founderInput.SOLUTION}
         Customer: ${founderInput.CUSTOMER_SEGMENT}
@@ -192,9 +191,21 @@ function App() {
         Barriers: ${founderInput.SPECIFIC_BARRIERS.join('; ')}
       `;
 
-      const res1 = await analyzeSegment(p1, publicInfo, founderContextString);
-      
-      const mapToState = (raw: GeminiAnalysisResponse, prefix: string): StatementResult => ({
+      const analysisPromise = analyzeSegment(p1, publicInfo, founderContextString);
+      const comparisonPromise = baselineStatement
+        ? generateComparison(baselineStatement, p2, publicInfo)
+        : null;
+
+      const [analysisResult, comparisonResult] = await Promise.allSettled([
+        analysisPromise,
+        comparisonPromise
+      ]);
+
+      if (analysisResult.status === 'rejected') {
+        throw analysisResult.reason;
+      }
+
+      const mapToState = (raw: AIAnalysisResponse, prefix: string): StatementResult => ({
         customers: raw.customers.map((i, idx) => ({ ...i, id: `${prefix}-c-${idx}`, isVerified: false, userNotes: '' })),
         contexts: raw.contexts.map((i, idx) => ({ ...i, id: `${prefix}-ctx-${idx}`, isVerified: false, userNotes: '' })),
         goals: raw.goals.map((i, idx) => ({ ...i, id: `${prefix}-g-${idx}`, isVerified: false, userNotes: '' })),
@@ -202,7 +213,20 @@ function App() {
         draftStatement: raw.finalStatement
       });
 
-      setPart1Result(mapToState(res1, 'p1'));
+      setPart1Result(mapToState(analysisResult.value, 'p1'));
+
+      if (comparisonResult && comparisonResult.status === 'fulfilled' && comparisonResult.value) {
+        const rowsWithIds = comparisonResult.value.rows.map((r, i) => ({
+          ...r,
+          id: `row-${i}`,
+          isAccepted: false
+        }));
+        setComparisonRows(rowsWithIds);
+      } else if (comparisonResult && comparisonResult.status === 'rejected') {
+        // Non-blocking: allow user to retry from Part 2
+        console.error('Comparison generation failed', comparisonResult.reason);
+      }
+
       setStatus(AppStatus.SUCCESS);
       setStep(WizardStep.PART1_ANALYSIS);
 
@@ -243,10 +267,24 @@ function App() {
 
   // --- Export ---
   const handleExport = () => {
+     const sanitize = (val: string | undefined | null) => (val ?? '').replace(/"/g, '""');
      let csv = "data:text/csv;charset=utf-8,Section,Component,Original,Modification,Type,Evidence,Public Support,Accepted\n";
-     part1Result?.customers.forEach(i => csv += `"Part 1 (Discovery)","Customer","","${i.description.replace(/"/g, '""')}","","${i.quotes.join(' ').replace(/"/g, '""')}","${i.publicEvidence?.replace(/"/g, '""') || ''}","${i.isVerified}"\n`);
+
+     const addDiscoveryItems = (items: { description: string; quotes: string[]; publicEvidence?: string; isVerified?: boolean; }[], label: string) => {
+       items.forEach(i => {
+         csv += `"Part 1 (Discovery)","${label}","","${sanitize(i.description)}","","${sanitize(i.quotes.join(' '))}","${sanitize(i.publicEvidence || '')}","${i.isVerified || false}"\n`;
+       });
+     };
+
+     if (part1Result) {
+       addDiscoveryItems(part1Result.customers, "Customer");
+       addDiscoveryItems(part1Result.contexts, "Context");
+       addDiscoveryItems(part1Result.goals, "Goal");
+       addDiscoveryItems(part1Result.barriers, "Barrier");
+     }
+
      comparisonRows.forEach(row => {
-       csv += `"Part 2 (Feedback)","${row.component}","${row.baselineText.replace(/"/g, '""')}","${row.transcriptModification.replace(/"/g, '""')}","${row.type}","${row.transcriptEvidence.replace(/"/g, '""')}","${row.publicSupport.replace(/"/g, '""')}","${row.isAccepted}"\n`;
+       csv += `"Part 2 (Feedback)","${row.component}","${sanitize(row.baselineText)}","${sanitize(row.transcriptModification)}","${row.type}","${sanitize(row.transcriptEvidence)}","${sanitize(row.publicSupport)}","${row.isAccepted}"\n`;
      });
 
      const encodedUri = encodeURI(csv);

@@ -10,7 +10,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onKeySubmit, hasKey }) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const storedKey = localStorage.getItem('gemini_api_key');
+    const storedKey = localStorage.getItem('openai_api_key');
     if (storedKey) {
       onKeySubmit(storedKey);
       setKey(storedKey);
@@ -21,13 +21,13 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onKeySubmit, hasKey }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (key.trim()) {
-      localStorage.setItem('gemini_api_key', key.trim());
+      localStorage.setItem('openai_api_key', key.trim());
       onKeySubmit(key.trim());
     }
   };
 
   const handleClear = () => {
-    localStorage.removeItem('gemini_api_key');
+    localStorage.removeItem('openai_api_key');
     setKey('');
     onKeySubmit('');
   };
@@ -47,7 +47,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onKeySubmit, hasKey }) => {
                 type={isVisible ? "text" : "password"}
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder="Enter Gemini API Key"
+                placeholder="Enter OpenAI API Key"
                 className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
