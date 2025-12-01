@@ -23,7 +23,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const pageResp = await fetch(url);
+    const pageResp = await fetch(url, {
+      headers: {
+        // Some sites block default fetch UA; mimic a browser
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36',
+        'accept-language': 'en-US,en;q=0.9',
+      },
+    });
     if (!pageResp.ok) {
       return res.status(502).json({ error: `Fetch failed: ${pageResp.status} ${pageResp.statusText}` });
     }
@@ -57,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sourceUrl: url
     });
   } catch (e: any) {
-    console.error(e);
-    res.status(500).json({ error: e.message || 'Internal error' });
+    console.error('fetch handler error:', e);
+    res.status(500).json({ error: e.message || 'Internal error', stack: process.env.NODE_ENV === 'development' ? e.stack : undefined });
   }
 }
