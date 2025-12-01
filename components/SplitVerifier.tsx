@@ -45,14 +45,23 @@ const SplitVerifier: React.FC<SplitVerifierProps> = ({ split, onConfirm, onCance
         </div>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-        <button
-          onClick={onCancel}
-          disabled={isProcessing}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 font-medium disabled:opacity-50"
-        >
-          Cancel / Re-upload
-        </button>
+      <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            disabled={isProcessing}
+            className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded disabled:opacity-50"
+          >
+            Back
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={isProcessing}
+            className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded disabled:opacity-50"
+          >
+            Cancel / Re-upload
+          </button>
+        </div>
         <button
           onClick={() => onConfirm(p1, p2)}
           disabled={isProcessing}

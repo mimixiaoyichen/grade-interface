@@ -5,12 +5,10 @@ import {
   ComparisonResult, 
   TranscriptSplit 
 } from '../types';
-import { 
-  ANALYSIS_PROMPT_TEMPLATE, 
-  SPLIT_TRANSCRIPT_PROMPT, 
-  BASELINE_PROMPT_GPT5,
-  COMPARISON_PROMPT 
-} from '../constants';
+import { ANALYSIS_PROMPT } from '../prompts/analysis';
+import { SPLIT_PROMPT } from '../prompts/split';
+import { COMPARISON_PROMPT_TEXT } from '../prompts/comparison';
+import BASELINE_PROMPT from '../prompts/baseline.md?raw';
 
 const MODEL_ID = 'gpt-4o';
 
@@ -274,7 +272,7 @@ export const fetchPublicInfoFromUrl = async (url: string): Promise<string> => {
 export const splitTranscript = async (fullTranscript: string): Promise<TranscriptSplit> => {
   return callJsonSchema<TranscriptSplit>(
     [
-      { role: 'user', content: SPLIT_TRANSCRIPT_PROMPT },
+      { role: 'user', content: SPLIT_PROMPT },
       { role: 'user', content: `FULL TRANSCRIPT:\n\n${fullTranscript}` }
     ],
     "split_transcript_schema",
@@ -290,7 +288,7 @@ export const analyzeSegment = async (
 ): Promise<AIAnalysisResponse> => {
   return callJsonSchema<AIAnalysisResponse>(
     [
-      { role: 'user', content: ANALYSIS_PROMPT_TEMPLATE },
+      { role: 'user', content: ANALYSIS_PROMPT },
       { role: 'user', content: `FOUNDER'S PRIOR STATEMENT:\n${founderInput}\n\nPUBLIC CONTEXT (Truth Source):\n${publicInfo || "No public context provided."}\n\nTRANSCRIPT SEGMENT:\n${transcriptSegment}` }
     ],
     "analysis_schema",
@@ -304,7 +302,7 @@ export const generateBaselineStatement = async (
 ): Promise<BaselineStatement> => {
   return callJsonSchema<BaselineStatement>(
     [
-      { role: 'user', content: BASELINE_PROMPT_GPT5 },
+      { role: 'user', content: BASELINE_PROMPT },
       { role: 'user', content: `SOURCE MATERIAL:\n${publicInfo}` }
     ],
     "baseline_schema",
@@ -321,7 +319,7 @@ export const generateComparison = async (
   const baselineStr = JSON.stringify(baseline, null, 2);
   return callJsonSchema<ComparisonResult>(
     [
-      { role: 'user', content: COMPARISON_PROMPT },
+      { role: 'user', content: COMPARISON_PROMPT_TEXT },
       { role: 'user', content: `BASELINE STATEMENT:\n${baselineStr}\n\nPUBLIC INFO:\n${publicInfo}\n\nTRANSCRIPT PART 2 (FEEDBACK):\n${transcriptPart2}` }
     ],
     "comparison_schema",

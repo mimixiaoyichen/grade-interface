@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AnalysisSection from './components/AnalysisSection';
 import SplitVerifier from './components/SplitVerifier';
 import BaselineReview from './components/BaselineReview';
@@ -11,7 +11,7 @@ import {
   generateComparison,
   fetchPublicInfoFromUrl
 } from './services/aiService';
-import { 
+import {
   AppStatus, 
   StatementResult, 
   TranscriptSplit, 
@@ -20,6 +20,136 @@ import {
   BaselineStatement,
   ComparisonRow
 } from './types';
+import INTERVIEWER_GUIDE from './prompts/interviewerGuide.md?raw';
+
+type GuideBlock = {
+  subtitle?: string;
+  bullets?: string[];
+  paragraphs?: string[];
+};
+
+type GuideSection = {
+  title: string;
+  description?: string;
+  blocks: GuideBlock[];
+};
+
+const GUIDE_SECTIONS: GuideSection[] = [
+  {
+    title: 'Understanding Problem Framework Variables',
+    blocks: [
+      { subtitle: 'Solution — IS', bullets: [
+        'The product, service, or offering the startup provides.',
+        'What the startup has built and is selling/offering to customers.',
+        'Examples: "AI-powered brand monitoring dashboard", "Automated expense management platform", "No-code workflow automation tool".',
+      ]},
+      { subtitle: 'Solution — IS NOT', bullets: [
+        'Vague marketing taglines (e.g., "we help companies succeed").',
+        'Benefits or outcomes (those are goals/aspirations).',
+        'Customer problems or pain points (those are barriers).',
+        'Aspirational products not yet built or publicly launched.',
+      ]},
+      { subtitle: 'Customer Segment — IS', bullets: [
+        'Those whose pain points the startup is alleviating, as represented in public communication.',
+        'Example: "HR managers at 50-200 person companies".',
+      ]},
+      { subtitle: 'Customer Segment — IS NOT', bullets: [
+        'End users who differ from the public target (e.g., kids using app vs. parents as target).',
+        'Aspirational customers not yet publicly targeted (violates public info requirement).',
+      ]},
+    ],
+  },
+  {
+    title: 'Identifying the Real Customer (Multi-Stakeholder)',
+    description: 'Determine the primary customer when multiple stakeholders are involved.',
+    blocks: [
+      { subtitle: 'Decision Framework: Who is the startup solving for?', bullets: [
+        'Website Value Proposition Test: read homepage; whose problem is emphasized? (e.g., "Cut infrastructure costs by 40%" → Finance; "Deploy faster..." → Engineering).',
+        'Case Study/Testimonial Test: whose titles are quoted most?',
+        'Barriers & Goals Alignment Test: from whose perspective are goals/barriers written? (e.g., "Manual approval slows procurement" → Ops).',
+        'Jobs-to-be-Done Anchor: when someone "hires" this product, whose job is being done?',
+      ]},
+      { subtitle: 'Rule of Thumb', paragraphs: [
+        'If the website could be rewritten to appeal to a different stakeholder without changing the product, you picked the wrong customer. The customer is whoever experiences the core barriers/goals emphasized publicly.',
+      ]},
+      { subtitle: 'Multi-Stakeholder Examples', paragraphs: [
+        'Dev tool bought by CFO: Product = CI/CD; CFO approves (cost), Engineering uses (speed). Customer = Engineering (pain points drive purchase).',
+        'Financial software bought by CFO: Product = Expense mgmt; CFO approves/uses; employees submit. Customer = CFO/Finance (controls/compliance).',
+        'Learning platform: HR buys/assigns; employees take courses; managers track. Customer = HR (compliance/onboarding pains).',
+      ]},
+    ],
+  },
+  {
+    title: 'Context, Goals, Barriers',
+    blocks: [
+      { subtitle: 'Context (When) — IS', bullets: [
+        'Specific triggering situation/timing when problem occurs (e.g., "when preparing quarterly business reviews").',
+      ]},
+      { subtitle: 'Context — IS NOT', bullets: [
+        'General business operations; vague timing like "always" or "whenever working".',
+      ]},
+      { subtitle: 'Goal / Aspiration — IS', bullets: [
+        'Desired outcome/end state the customer wants, solution-agnostic (e.g., "track brand visibility in AI search results").',
+        'Future-oriented; emotional or functional progress.',
+      ]},
+      { subtitle: 'Goal / Aspiration — IS NOT', bullets: [
+        'Features of your solution, process steps, or generic "be more efficient".',
+      ]},
+      { subtitle: 'Barriers — IS', bullets: [
+        'Specific obstacles preventing the goal (e.g., "Hard to gather reliable, comparable data on early-stage startups").',
+        'Explain why customers are stuck; map to value props.',
+      ]},
+      { subtitle: 'Barriers — IS NOT', bullets: [
+        'Vague terms like "lack of resources", "complexity", competitive disadvantages.',
+      ]},
+    ],
+  },
+  {
+    title: 'Critical Filtering: Public vs Private & Nonsense',
+    blocks: [
+      { subtitle: 'Interview Technique', bullets: [
+        'Prompt founders: "Think about your website first" to anchor in public info.',
+        'Primary focus: verify solutions/customers match public communication.',
+      ]},
+      { subtitle: 'Filter Problematic Responses', bullets: [
+        'Private information: internal strategy, aspirational not public, sales-only details, customer specifics, pivot plans, undisclosed metrics.',
+        'Nonsensical responses: unrelated to the variable, contradictory, incoherent, or wildly off-website.',
+      ]},
+      { subtitle: 'Red Flags (General)', bullets: [
+        'Answer about wrong variable (barriers vs goals), contradictions, incomprehensible reasoning, off-website divergence.',
+      ]},
+      { subtitle: 'Red Flags (Customer Segment)', bullets: [
+        'Customer doesn’t match any website messaging, 3+ equal segments, "everyone needs this", segments change across variables.',
+      ]},
+      { subtitle: 'Action', bullets: [
+        'Probe: clarify how the response relates to the specific variable.',
+        'Anchor: "When I look at your website, who would I think is your primary customer?"',
+      ]},
+      { subtitle: 'Public Information', bullets: [
+        'Available to anyone: website, LinkedIn, PitchBook/Crunchbase, press, case studies, blog posts, social media.',
+        'If an LLM could find it via web search, it’s PUBLIC.',
+      ]},
+      { subtitle: 'Private Information', bullets: [
+        'Requires insider access/relationship: roadmap, future pivots, sales-call learnings, specific implementations, undisclosed metrics.',
+        'If it requires being an insider/customer, it’s PRIVATE.',
+      ]},
+    ],
+  },
+  {
+    title: 'Corner Cases',
+    blocks: [
+      { subtitle: 'Product Offering Mismatches', bullets: [
+        'Features/customers not on the website → PRIVATE.',
+        'Variables tied to non-public products → PRIVATE.',
+        'Signals: "website is outdated", "we used to", "we’re pivoting", "we spun out".',
+      ]},
+      { subtitle: 'Barriers/Aspirations Not Explicit Online', bullets: [
+        'Barriers/goals are rarely explicit, but should logically follow from public products/customers.',
+        'If tied to non-public products/customers, treat as PRIVATE.',
+      ]},
+    ],
+  },
+];
 
 const INITIAL_STATEMENT: BaselineStatement = {
   SOLUTION: '',
@@ -59,6 +189,14 @@ function App() {
   // UI helpers
   const [isStatementOpen, setIsStatementOpen] = useState(true);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [showGuideGlow, setShowGuideGlow] = useState(false);
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('guide_seen');
+    if (!hasSeen) {
+      setShowGuideGlow(true);
+    }
+  }, []);
 
   // --- Logic & Handlers ---
 
@@ -302,19 +440,48 @@ function App() {
 
   const renderStepIndicator = () => {
     const steps = ["Public Info", "Founder Input", "Review Baseline", "Transcript", "Discovery (P1)", "Feedback (P2)"];
+
+    const availability = [
+      true,
+      Boolean(baselineStatement),
+      Boolean(baselineStatement),
+      Boolean(baselineStatement),
+      Boolean(part1Result),
+      comparisonRows.length > 0 || Boolean(part1Result && splitData)
+    ];
+
     return (
       <div className="flex justify-between items-center max-w-4xl mx-auto mb-8 relative">
         <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -z-10"></div>
         {steps.map((label, idx) => {
           const isActive = step === idx;
           const isCompleted = step > idx;
+          const isAvailable = availability[idx];
+          const baseClasses = isActive
+            ? 'bg-blue-600 text-white'
+            : isCompleted
+              ? 'bg-green-500 text-white'
+              : isAvailable
+                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                : 'bg-gray-300 text-gray-600';
+
+          const handleClick = () => {
+            if (idx === step) return;
+            if (isAvailable) setStep(idx as WizardStep);
+          };
+
           return (
-            <div key={idx} className="flex flex-col items-center bg-gray-50 px-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+            <button
+              key={idx}
+              onClick={handleClick}
+              className="flex flex-col items-center bg-gray-50 px-2 focus:outline-none"
+              disabled={!isAvailable}
+            >
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${baseClasses}`}>
                 {isCompleted ? '✓' : idx + 1}
               </div>
-              <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>{label}</span>
-            </div>
+              <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-blue-600' : isAvailable ? 'text-blue-700' : 'text-gray-400'}`}>{label}</span>
+            </button>
           );
         })}
       </div>
@@ -325,9 +492,32 @@ function App() {
 
   const renderGuideModal = () => {
     if (!isGuideOpen) return null;
+
+    const renderSection = (section: GuideSection, idx: number) => (
+      <div key={section.title + idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h3 className="text-lg font-bold text-gray-900 mb-1">{section.title}</h3>
+        {section.description && <p className="text-sm text-gray-600 mb-3">{section.description}</p>}
+        <div className="space-y-3">
+          {section.blocks.map((block, i) => (
+            <div key={block.subtitle || i}>
+              {block.subtitle && <div className="text-sm font-semibold text-gray-800 mb-1">{block.subtitle}</div>}
+              {block.paragraphs && block.paragraphs.map((p, pi) => (
+                <p key={pi} className="text-sm text-gray-700">{p}</p>
+              ))}
+              {block.bullets && (
+                <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+                  {block.bullets.map((b, bi) => <li key={bi}>{b}</li>)}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-        <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 relative">
+        <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 relative">
           <button
             onClick={() => setIsGuideOpen(false)}
             className="absolute right-3 top-3 text-gray-400 hover:text-gray-700"
@@ -335,27 +525,10 @@ function App() {
           >
             ×
           </button>
-          <h2 className="text-2xl font-bold mb-3 text-gray-900">Interview Training Guide</h2>
-          <p className="text-sm text-gray-600 mb-4">Definitions you can reference at any step.</p>
-          <div className="space-y-3 text-sm text-gray-800">
-            <div>
-              <strong>Customer</strong>: Who experiences the problem and benefits (e.g., “IT admins at mid-market SaaS companies”).
-            </div>
-            <div>
-              <strong>Context</strong>: Where/when the problem shows up (e.g., “during onboarding when provisioning accounts”).
-            </div>
-            <div>
-              <strong>Goal / Job To Be Done</strong>: What they are trying to achieve (e.g., “launch a new user within 5 minutes without errors”).
-            </div>
-            <div>
-              <strong>Barrier</strong>: What blocks them (e.g., “manual ticket routing causes delays; data is siloed; compliance risk”).
-            </div>
-            <div>
-              <strong>Evidence</strong>: Quotes from transcript or public info that support a claim.
-            </div>
-            <div>
-              <strong>Baseline</strong>: The public “truth source” you generated before founder input; use it to judge changes.
-            </div>
+          <h2 className="text-2xl font-bold mb-3 text-gray-900">Interviewer Training Guidance</h2>
+          <p className="text-sm text-gray-600 mb-4">Verbatim content, grouped for quick scanning.</p>
+          <div className="text-sm text-gray-800 max-h-[65vh] overflow-y-auto pr-2 space-y-3">
+            {GUIDE_SECTIONS.map(renderSection)}
           </div>
           <div className="mt-6 flex justify-end">
             <button
@@ -380,14 +553,21 @@ function App() {
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
              <button
-               onClick={() => setIsGuideOpen(true)}
-               className="text-sm font-semibold text-blue-600 hover:text-blue-800 underline"
+               onClick={() => {
+                 setIsGuideOpen(true);
+                 setShowGuideGlow(false);
+                 localStorage.setItem('guide_seen', 'true');
+               }}
+               className={`text-sm font-semibold text-blue-600 hover:text-blue-800 underline relative ${showGuideGlow ? 'animate-pulse' : ''}`}
              >
-               Interview Guide
+               Guide
+               {showGuideGlow && (
+                 <span className="absolute inset-0 rounded-full shadow-[0_0_0_6px_rgba(59,130,246,0.25)] pointer-events-none"></span>
+               )}
              </button>
-          </div>
-        </div>
-      </div>
+         </div>
+       </div>
+     </div>
 
       <header className="bg-white shadow-sm border-b border-gray-200 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -591,7 +771,7 @@ function App() {
             </div>
 
             <div className="flex justify-between">
-              <button onClick={() => setStep(WizardStep.PUBLIC_INFO)} className="text-gray-500 hover:text-gray-800">Back</button>
+              <button onClick={() => setStep(WizardStep.PUBLIC_INFO)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
               <button 
                 onClick={submitFounderInput}
                 className="bg-purple-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-purple-700"
@@ -632,7 +812,7 @@ function App() {
                   onChange={(e) => setTranscript(e.target.value)}
                 />
                 <div className="flex justify-between">
-                  <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-gray-500 hover:text-gray-800">Back</button>
+                  <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
                   <button 
                     onClick={startSplit}
                     disabled={status === AppStatus.PROCESSING || !transcript}
@@ -668,7 +848,7 @@ function App() {
             <div className="flex justify-between items-center mb-6">
                <h2 className="text-2xl font-bold text-gray-800">Part 1 Results: Discovery</h2>
                <div className="flex gap-2">
-                 <button onClick={() => setStep(WizardStep.TRANSCRIPT_UPLOAD)} className="text-gray-500 hover:text-gray-800 px-3">Back</button>
+                 <button onClick={() => setStep(WizardStep.TRANSCRIPT_UPLOAD)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
                  <button 
                    onClick={proceedToComparison}
                    disabled={status === AppStatus.PROCESSING}
@@ -715,7 +895,7 @@ function App() {
           <div className="animate-fade-in-up pb-20">
             <div className="flex justify-between items-center mb-8">
                <div className="flex items-center gap-4">
-                 <button onClick={() => setStep(WizardStep.PART1_ANALYSIS)} className="text-gray-500 hover:text-gray-800">Back</button>
+                 <button onClick={() => setStep(WizardStep.PART1_ANALYSIS)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
                  <div>
                    <h2 className="text-2xl font-bold text-gray-800">Part 2 Results: Feedback & Comparison</h2>
                    <p className="text-gray-500">Comparing Baseline (Public Info) vs. Founder's Transcript Feedback.</p>

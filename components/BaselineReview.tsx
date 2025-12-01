@@ -139,7 +139,7 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
       </div>
 
       <div className="mt-8 pt-6 border-t border-gray-100 flex justify-between">
-        <button onClick={onBack} className="text-gray-500 hover:text-gray-800 px-4 py-2 text-sm font-medium">Back</button>
+        <button onClick={onBack} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
         <button 
           onClick={onNext}
           className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 transition-all"
