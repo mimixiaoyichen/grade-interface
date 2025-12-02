@@ -236,19 +236,37 @@ export const fetchPublicInfoFromUrl = async (url: string): Promise<string> => {
 
   const looksLikeUrl = /^https?:\/\//i.test(target) || /^[\w-]+\.[\w.-]+/.test(target);
 
+  const parseJsonSafe = async (resp: Response) => {
+    const contentType = resp.headers.get('content-type') || '';
+    const text = await resp.text();
+    if (contentType.includes('application/json')) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        const snippet = text.slice(0, 200);
+        throw new Error(`Response claimed JSON but could not parse. Status ${resp.status}. Body starts: ${snippet}`);
+      }
+    }
+    const snippet = text.slice(0, 200);
+    if (snippet.includes('<!DOCTYPE html')) {
+      throw new Error(`Unexpected HTML from API (check /api/fetch or /api/search). Status ${resp.status}. Body starts: ${snippet}`);
+    }
+    throw new Error(`Unexpected response (not JSON). Status ${resp.status}. Body starts: ${snippet}`);
+  };
+
   if (looksLikeUrl) {
     const resp = await fetch(`/api/fetch?url=${encodeURIComponent(target.startsWith('http') ? target : `https://${target}`)}`);
     if (!resp.ok) {
       throw new Error(`Failed to fetch URL: ${resp.status} ${resp.statusText}`);
     }
-    const data = await resp.json();
+    const data = await parseJsonSafe(resp);
     return `${data.summary}\n\n==========================================\n=== VERBATIM PAGE CONTENT (Cleaned) ===\n==========================================\n\n${data.cleaned}`;
   } else {
     const resp = await fetch(`/api/search?q=${encodeURIComponent(target)}`);
     if (!resp.ok) {
       throw new Error(`Failed to search: ${resp.status} ${resp.statusText}`);
     }
-    const data = await resp.json();
+    const data = await parseJsonSafe(resp);
     if (!Array.isArray(data.results) || data.results.length === 0) {
       const filteredNote = Array.isArray(data.filteredOut) && data.filteredOut.length > 0
         ? `All fetched pages were filtered out (no mention of ${data.targetDomain || 'target'}).`

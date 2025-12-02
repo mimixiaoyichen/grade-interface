@@ -190,6 +190,7 @@ function App() {
   const [isStatementOpen, setIsStatementOpen] = useState(true);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [showGuideGlow, setShowGuideGlow] = useState(false);
+  const [hasFetchedPublicInfo, setHasFetchedPublicInfo] = useState(false);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -222,6 +223,7 @@ function App() {
       setPart1Result(null);
       setComparisonRows([]);
       setErrorMsg('');
+      setHasFetchedPublicInfo(false);
     }
   };
 
@@ -233,6 +235,9 @@ function App() {
     try {
       const fetchedText = await fetchPublicInfoFromUrl(companyUrl);
       setPublicInfo(fetchedText);
+      setHasFetchedPublicInfo(true);
+      setBaselineStatement(null);
+      setBaselineSource('');
       setStatus(AppStatus.SUCCESS);
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -244,12 +249,12 @@ function App() {
   const generateBaseline = async () => {
     const trimmedPublicInfo = publicInfo.trim();
     if (!trimmedPublicInfo) return setErrorMsg("Public information is required.");
+    if (!hasFetchedPublicInfo) return setErrorMsg("Please fetch public information first.");
 
     // If we already generated from this exact public info, just continue without re-calling the model
     if (baselineStatement && baselineSource === trimmedPublicInfo) {
       setErrorMsg('');
       setStatus(AppStatus.SUCCESS);
-      setStep(WizardStep.FOUNDER_INPUT);
       return;
     }
     
@@ -262,7 +267,6 @@ function App() {
       // Clear downstream data that depends on baseline
       setComparisonRows([]); 
       setStatus(AppStatus.SUCCESS);
-      setStep(WizardStep.FOUNDER_INPUT);
     } catch (e: any) {
       setErrorMsg(e.message);
       setStatus(AppStatus.ERROR);
@@ -326,7 +330,7 @@ function App() {
         Solution: ${founderInput.SOLUTION}
         Customer: ${founderInput.CUSTOMER_SEGMENT}
         Context: ${founderInput.LIFE_BUSINESS_CONTEXT}
-        Job To Be Done: ${founderInput.JOB_TO_BE_DONE}
+        Goals: ${founderInput.JOB_TO_BE_DONE}
         Barriers: ${founderInput.SPECIFIC_BARRIERS.join('; ')}
       `;
 
@@ -601,13 +605,6 @@ function App() {
                 <h2 className="text-2xl font-bold mb-1">1. Public Information</h2>
                 <p className="text-gray-500 text-sm">Provide the "Public Truth" baseline. You can paste text/files or use Google Search.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsGuideOpen(true)}
-                className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded hover:bg-blue-100 font-semibold"
-              >
-                View Guide
-              </button>
             </div>
             
             
@@ -656,18 +653,43 @@ function App() {
               onChange={(e) => setPublicInfo(e.target.value)}
             />
             
-            <div className="flex justify-end">
-              <button 
-                onClick={generateBaseline}
-                disabled={status === AppStatus.PROCESSING}
-                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {status === AppStatus.PROCESSING 
-                  ? 'Analyzing Public Info...' 
-                  : isBaselineCurrent 
-                    ? 'Continue →' 
-                    : 'Generate Baseline →'}
-              </button>
+            <div className="space-y-4">
+              <div className="flex justify-end gap-3">
+                {baselineStatement && (
+                  <button 
+                    onClick={() => setStep(WizardStep.FOUNDER_INPUT)}
+                    className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-4 py-2 rounded border border-gray-200"
+                  >
+                    Continue to Founder Input →
+                  </button>
+                )}
+                <button 
+                  onClick={generateBaseline}
+                  disabled={status === AppStatus.PROCESSING || !hasFetchedPublicInfo}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {status === AppStatus.PROCESSING 
+                    ? 'Analyzing Public Info...' 
+                    : isBaselineCurrent 
+                      ? 'Regenerate Baseline' 
+                      : 'Generate Baseline →'}
+                </button>
+              </div>
+
+              {baselineStatement && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">LLM Baseline (Preview)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-800">
+                    <div><span className="font-semibold">Solution:</span> {baselineStatement.SOLUTION}</div>
+                    <div><span className="font-semibold">Customer:</span> {baselineStatement.CUSTOMER_SEGMENT}</div>
+                    <div><span className="font-semibold">Context:</span> {baselineStatement.LIFE_BUSINESS_CONTEXT}</div>
+                    <div><span className="font-semibold">Goals:</span> {baselineStatement.JOB_TO_BE_DONE}</div>
+                    <div className="md:col-span-2">
+                      <span className="font-semibold">Barriers:</span> {baselineStatement.SPECIFIC_BARRIERS.join('; ')}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
