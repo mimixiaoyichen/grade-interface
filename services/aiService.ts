@@ -72,11 +72,10 @@ const callText = async (
 const splitSchema: JsonSchema = {
   type: "object",
   properties: {
-    part1: { type: "string", description: "The first part of the interview (Discovery)" },
-    part2: { type: "string", description: "The second part of the interview (Feedback/Correction)" },
+    hexId: { type: "string", description: "Hex line ID (e.g., 0x00AF) where Part 2 begins" },
     reasoning: { type: "string", description: "Explanation of why the split was made here" }
   },
-  required: ["part1", "part2", "reasoning"],
+  required: ["hexId", "reasoning"],
   additionalProperties: false
 };
 
@@ -91,9 +90,10 @@ const analysisSchema: JsonSchema = {
           description: { type: "string" },
           quotes: { type: "array", items: { type: "string" } },
           publicEvidence: { type: "string" },
+          publicEvidenceContext: { type: "string" },
           isSupportedByPublic: { type: "boolean" }
         },
-        required: ["description", "quotes", "publicEvidence", "isSupportedByPublic"],
+        required: ["description", "quotes", "publicEvidence", "publicEvidenceContext", "isSupportedByPublic"],
         additionalProperties: false
       }
     },
@@ -288,15 +288,38 @@ export const fetchPublicInfoFromUrl = async (url: string): Promise<string> => {
 };
 
 export const splitTranscript = async (fullTranscript: string): Promise<TranscriptSplit> => {
-  return callJsonSchema<TranscriptSplit>(
+  const lines = fullTranscript.split('\n');
+  const numberedTranscript = lines.map((line, idx) => {
+    const hex = (0x1000 + idx).toString(16).toUpperCase().slice(-4); // 4 hex digits
+    return `0x${hex} ${line}`;
+  }).join('\n');
+
+  return callJsonSchema<any>(
     [
       { role: 'user', content: SPLIT_PROMPT },
-      { role: 'user', content: `FULL TRANSCRIPT:\n\n${fullTranscript}` }
+      { role: 'user', content: `FULL TRANSCRIPT (numbered):\n\n${numberedTranscript}` }
     ],
     "split_transcript_schema",
     splitSchema,
     0.1
-  );
+  ).then((res: any) => {
+    const hexId = (res.hexId || '').toString().trim();
+    const idx = lines.findIndex((_, i) => {
+      const hex = (0x1000 + i).toString(16).toUpperCase().slice(-4);
+      return `0x${hex}`.toLowerCase() === hexId.toLowerCase();
+    });
+    const clampedIdx = idx >= 0 ? idx : Math.floor(lines.length / 2);
+    const part1 = lines.slice(0, clampedIdx).join('\n');
+    const part2 = lines.slice(clampedIdx).join('\n');
+    const usedFallback = idx === -1;
+    return {
+      part1,
+      part2,
+      reasoning: usedFallback
+        ? `Could not find hex line ID ("${hexId}"). Split at index ${clampedIdx} (fallback midpoint). Please review manually.`
+        : `${res.reasoning || 'Split decided'} (line ${hexId})`
+    };
+  });
 };
 
 export const analyzeSegment = async (

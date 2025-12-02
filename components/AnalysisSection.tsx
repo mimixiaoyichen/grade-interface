@@ -6,9 +6,10 @@ interface AnalysisSectionProps {
   items: AnalysisItem[];
   colorClass: string;
   onUpdate: (updatedItems: AnalysisItem[]) => void;
+  renderPublicHighlight?: (text: string) => React.ReactNode;
 }
 
-const AnalysisSection: React.FC<AnalysisSectionProps> = ({ title, items, colorClass, onUpdate }) => {
+const AnalysisSection: React.FC<AnalysisSectionProps> = ({ title, items, colorClass, onUpdate, renderPublicHighlight }) => {
 
   const handleVerifyToggle = (id: string) => {
     const updated = items.map(item =>
@@ -51,6 +52,7 @@ const AnalysisSection: React.FC<AnalysisSectionProps> = ({ title, items, colorCl
             onVerify={() => handleVerifyToggle(item.id)}
             onNoteChange={(val) => handleNotesChange(item.id, val)}
             onDescriptionChange={(val) => handleDescriptionChange(item.id, val)}
+            renderPublicHighlight={renderPublicHighlight}
           />
         ))}
       </div>
@@ -63,7 +65,8 @@ const AnalysisRow: React.FC<{
   onVerify: () => void; 
   onNoteChange: (s: string) => void;
   onDescriptionChange: (s: string) => void;
-}> = ({ item, onVerify, onNoteChange, onDescriptionChange }) => {
+  renderPublicHighlight?: (text: string) => React.ReactNode;
+}> = ({ item, onVerify, onNoteChange, onDescriptionChange, renderPublicHighlight }) => {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -122,9 +125,17 @@ const AnalysisRow: React.FC<{
              <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-orange-200">NOT FOUND / PRIVATE</span>
            )}
         </div>
-        <p className={`text-xs ${item.isSupportedByPublic ? 'text-gray-600' : 'text-orange-800/70 italic'}`}>
-          {item.publicEvidence || "No evidence found in public documents."}
-        </p>
+        <div className="text-xs space-y-2">
+          {item.publicEvidenceContext
+            ? (renderPublicHighlight ? renderPublicHighlight(item.publicEvidenceContext) : <p className="text-gray-700">{item.publicEvidenceContext}</p>)
+            : null}
+          {!item.publicEvidenceContext && item.publicEvidence && (
+            renderPublicHighlight ? renderPublicHighlight(item.publicEvidence) : <p className="text-gray-700">{item.publicEvidence}</p>
+          )}
+          {!item.publicEvidence && !item.publicEvidenceContext && (
+            <p className="text-orange-800/70 italic">No evidence found in public documents.</p>
+          )}
+        </div>
       </div>
 
       {/* 3. Notes (3 cols) */}

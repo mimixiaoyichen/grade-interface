@@ -422,7 +422,7 @@ function App() {
   // --- Export ---
   const handleExport = () => {
      const sanitize = (val: string | undefined | null) => (val ?? '').replace(/"/g, '""');
-     let csv = "data:text/csv;charset=utf-8,Section,Component,Original,Modification,Type,Evidence,Public Support,Accepted\n";
+     let csv = "data:text/csv;charset=utf-8,Section,Component,Original,Modification,Type,Evidence,Public Source Check,Accepted\n";
 
      const addDiscoveryItems = (items: { description: string; quotes: string[]; publicEvidence?: string; isVerified?: boolean; }[], label: string) => {
        items.forEach(i => {
@@ -504,6 +504,27 @@ function App() {
   };
 
   const isBaselineCurrent = Boolean(baselineStatement && baselineSource === getCombinedPublicInfo().trim());
+
+  const highlightEvidence = (evidence: string) => {
+    const source = getCombinedPublicInfo();
+    if (!evidence || !source) return null;
+    const lowerSource = source.toLowerCase();
+    const lowerEvidence = evidence.toLowerCase();
+    const idx = lowerSource.indexOf(lowerEvidence);
+    if (idx === -1) return <span className="text-sm text-gray-700">{evidence}</span>;
+    const start = Math.max(0, idx - 80);
+    const end = Math.min(source.length, idx + evidence.length + 80);
+    const before = source.slice(start, idx);
+    const match = source.slice(idx, idx + evidence.length);
+    const after = source.slice(idx + evidence.length, end);
+    return (
+      <span className="text-sm text-gray-800">
+        {start > 0 ? '…' : ''}{before}
+        <mark className="bg-yellow-200 text-gray-900">{match}</mark>
+        {after}{end < source.length ? '…' : ''}
+      </span>
+    );
+  };
 
   const renderGuideModal = () => {
     if (!isGuideOpen) return null;
@@ -699,7 +720,7 @@ function App() {
 
               {baselineStatement && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-lg font-bold text-gray-800 mb-2">LLM Baseline (Preview)</h3>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">LLM-generated Statement (Preview)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-800">
                     <div><span className="font-semibold">Solution:</span> {baselineStatement.SOLUTION}</div>
                     <div><span className="font-semibold">Customer:</span> {baselineStatement.CUSTOMER_SEGMENT}</div>
@@ -903,10 +924,11 @@ function App() {
             </div>
 
             <AnalysisSection title="Customers" items={part1Result.customers} colorClass="border-purple-200" onUpdate={(i) => setPart1Result({...part1Result, customers: i})} />
-            <AnalysisSection title="Contexts" items={part1Result.contexts} colorClass="border-teal-200" onUpdate={(i) => setPart1Result({...part1Result, contexts: i})} />
-            <AnalysisSection title="Goals" items={part1Result.goals} colorClass="border-orange-200" onUpdate={(i) => setPart1Result({...part1Result, goals: i})} />
-            <AnalysisSection title="Barriers" items={part1Result.barriers} colorClass="border-red-200" onUpdate={(i) => setPart1Result({...part1Result, barriers: i})} />
-          
+            <AnalysisSection title="Customers" items={part1Result.customers} colorClass="border-purple-200" onUpdate={(i) => setPart1Result({...part1Result, customers: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
+            <AnalysisSection title="Contexts" items={part1Result.contexts} colorClass="border-teal-200" onUpdate={(i) => setPart1Result({...part1Result, contexts: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
+            <AnalysisSection title="Goals" items={part1Result.goals} colorClass="border-orange-200" onUpdate={(i) => setPart1Result({...part1Result, goals: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
+            <AnalysisSection title="Barriers" items={part1Result.barriers} colorClass="border-red-200" onUpdate={(i) => setPart1Result({...part1Result, barriers: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
+
             {/* Draft Statement Footer for Part 1 */}
             <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 shadow-2xl z-30 transition-all duration-300 ease-in-out ${isStatementOpen ? 'h-auto' : 'h-10 overflow-hidden'}`}>
               <div className="max-w-7xl mx-auto px-4 h-full flex flex-col">
@@ -952,6 +974,7 @@ function App() {
             <ComparisonTable 
               rows={comparisonRows}
               onUpdate={setComparisonRows}
+              renderPublicHighlight={(text) => highlightEvidence(text)}
             />
           </div>
         )}

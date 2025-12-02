@@ -5,9 +5,10 @@ import { ComparisonRow } from '../types';
 interface ComparisonTableProps {
   rows: ComparisonRow[];
   onUpdate: (updatedRows: ComparisonRow[]) => void;
+  renderPublicHighlight?: (text: string) => React.ReactNode;
 }
 
-const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate }) => {
+const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, renderPublicHighlight }) => {
 
   const handleAcceptToggle = (index: number) => {
     const newRows = [...rows];
@@ -42,7 +43,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate }) => 
                   <th className="px-6 py-3 font-medium w-1/4">LLM-Generated</th>
                   <th className="px-6 py-3 font-medium w-1/4">Transcript Modification</th>
                   <th className="px-6 py-3 font-medium w-1/4">Evidence (Transcript)</th>
-                  <th className="px-6 py-3 font-medium w-1/4">Public Support</th>
+                  <th className="px-6 py-3 font-medium w-1/4">Public Source Check</th>
                   <th className="px-4 py-3 font-medium w-16 text-center">Keep?</th>
                 </tr>
               </thead>
@@ -73,7 +74,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate }) => 
                              ? 'bg-orange-50 border-orange-100 text-orange-800' 
                              : 'bg-green-50 border-green-100 text-green-800'
                          }`}>
-                           {row.publicSupport}
+                           {renderPublicHighlight ? renderPublicHighlight(row.publicSupport) : row.publicSupport}
                          </div>
                       </td>
                       <td className="px-4 py-4 align-top text-center">

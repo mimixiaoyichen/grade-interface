@@ -9,6 +9,12 @@ Extract:
 2) Contexts: where/when the problem occurs
 3) Goals: what they are trying to achieve
 4) Barriers: what blocks them
-Provide supporting quotes from the transcript and note if each item is supported by public info.
-Finally, draft a crisp problem statement.
+
+For each item:
+- Provide supporting quotes from the transcript (verbatim).
+- publicEvidence: if supported by public info, copy the exact matching text (no summaries).
+- publicEvidenceContext: include 20–80 surrounding characters from public info (verbatim) with the evidence inside it.
+- isSupportedByPublic: true/false.
+
+Finally, draft a concise problem statement.
 `;

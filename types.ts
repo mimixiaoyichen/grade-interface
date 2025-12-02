@@ -7,6 +7,7 @@ export interface AnalysisItem {
   userNotes: string;
   publicEvidence?: string;
   isSupportedByPublic?: boolean;
+  publicEvidenceContext?: string;
 }
 
 export interface AnalysisSection {
@@ -68,10 +69,10 @@ export interface ComparisonResult {
 
 // Raw responses
 export interface AIAnalysisResponse {
-  customers: { description: string; quotes: string[]; publicEvidence: string; isSupportedByPublic: boolean }[];
-  contexts: { description: string; quotes: string[]; publicEvidence: string; isSupportedByPublic: boolean }[];
-  goals: { description: string; quotes: string[]; publicEvidence: string; isSupportedByPublic: boolean }[];
-  barriers: { description: string; quotes: string[]; publicEvidence: string; isSupportedByPublic: boolean }[];
+  customers: { description: string; quotes: string[]; publicEvidence: string; publicEvidenceContext?: string; isSupportedByPublic: boolean }[];
+  contexts: { description: string; quotes: string[]; publicEvidence: string; publicEvidenceContext?: string; isSupportedByPublic: boolean }[];
+  goals: { description: string; quotes: string[]; publicEvidence: string; publicEvidenceContext?: string; isSupportedByPublic: boolean }[];
+  barriers: { description: string; quotes: string[]; publicEvidence: string; publicEvidenceContext?: string; isSupportedByPublic: boolean }[];
   finalStatement: string;
 }
 
