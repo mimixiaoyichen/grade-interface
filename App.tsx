@@ -4,13 +4,14 @@ import AnalysisSection from './components/AnalysisSection';
 import SplitVerifier from './components/SplitVerifier';
 import BaselineReview from './components/BaselineReview';
 import ComparisonTable from './components/ComparisonTable';
-import { 
+import {
   analyzeSegment, 
   splitTranscript, 
   generateBaselineStatement, 
   generateComparison,
   fetchPublicInfoFromUrl
 } from './services/aiService';
+import buildCsv from './utils/buildCsv';
 import {
   AppStatus, 
   StatementResult, 
@@ -192,12 +193,19 @@ function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [showGuideGlow, setShowGuideGlow] = useState(false);
   const [hasFetchedPublicInfo, setHasFetchedPublicInfo] = useState(false);
+  const [dropboxStatus, setDropboxStatus] = useState<string>('');
+  const [hasDropboxToken, setHasDropboxToken] = useState<boolean>(false);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
     if (!hasSeen) {
       setShowGuideGlow(true);
     }
+
+    // Verify Dropbox token availability (server proxy)
+    fetch('/api/saveDropbox', { method: 'OPTIONS' })
+      .then((res) => setHasDropboxToken(res.status === 204))
+      .catch(() => setHasDropboxToken(false));
   }, []);
 
   // --- Logic & Handlers ---
@@ -420,34 +428,49 @@ function App() {
   };
 
   // --- Export ---
+  const buildFilename = () => {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const base = companyUrl || 'analysis';
+    const safeBase = base.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 40) || 'analysis';
+    return `${safeBase}-${ts}.csv`;
+  };
+
   const handleExport = () => {
-     const sanitize = (val: string | undefined | null) => (val ?? '').replace(/"/g, '""');
-     let csv = "data:text/csv;charset=utf-8,Section,Component,Original,Modification,Type,Evidence,Public Source Check,Accepted\n";
-
-     const addDiscoveryItems = (items: { description: string; quotes: string[]; publicEvidence?: string; isVerified?: boolean; }[], label: string) => {
-       items.forEach(i => {
-         csv += `"Part 1 (Discovery)","${label}","","${sanitize(i.description)}","","${sanitize(i.quotes.join(' '))}","${sanitize(i.publicEvidence || '')}","${i.isVerified || false}"\n`;
-       });
-     };
-
-     if (part1Result) {
-       addDiscoveryItems(part1Result.customers, "Customer");
-       addDiscoveryItems(part1Result.contexts, "Context");
-       addDiscoveryItems(part1Result.goals, "Goal");
-       addDiscoveryItems(part1Result.barriers, "Barrier");
-     }
-
-     comparisonRows.forEach(row => {
-       csv += `"Part 2 (Feedback)","${row.component}","${sanitize(row.baselineText)}","${sanitize(row.transcriptModification)}","${row.type}","${sanitize(row.transcriptEvidence)}","${sanitize(row.publicSupport)}","${row.isAccepted}"\n`;
-     });
-
-     const encodedUri = encodeURI(csv);
+     const csv = buildCsv(part1Result, comparisonRows, { founderInput, baseline: baselineStatement });
+     const filename = buildFilename();
+     const encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csv}`);
      const link = document.createElement("a");
      link.setAttribute("href", encodedUri);
-     link.setAttribute("download", "founder_analysis_full.csv");
+     link.setAttribute("download", filename);
      document.body.appendChild(link);
      link.click();
      document.body.removeChild(link);
+
+     // Also save to Dropbox if configured
+     handleSaveDropbox(filename, csv);
+  };
+
+  const handleSaveDropbox = async (filename?: string, csvOverride?: string) => {
+    setDropboxStatus('Saving to Dropbox...');
+    try {
+      const csv = csvOverride || buildCsv(part1Result, comparisonRows, { founderInput, baseline: baselineStatement });
+      const safeName = filename || buildFilename();
+
+      const resp = await fetch('/api/saveDropbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, content: csv })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || `Dropbox save failed: ${resp.statusText}`);
+      }
+      const data = await resp.json();
+      setDropboxStatus(`Saved to Dropbox: ${data.path}`);
+    } catch (e: any) {
+      setDropboxStatus(`Dropbox error: ${e.message || e}`);
+    }
   };
 
 
@@ -923,7 +946,6 @@ function App() {
                </div>
             </div>
 
-            <AnalysisSection title="Customers" items={part1Result.customers} colorClass="border-purple-200" onUpdate={(i) => setPart1Result({...part1Result, customers: i})} />
             <AnalysisSection title="Customers" items={part1Result.customers} colorClass="border-purple-200" onUpdate={(i) => setPart1Result({...part1Result, customers: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
             <AnalysisSection title="Contexts" items={part1Result.contexts} colorClass="border-teal-200" onUpdate={(i) => setPart1Result({...part1Result, contexts: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
             <AnalysisSection title="Goals" items={part1Result.goals} colorClass="border-orange-200" onUpdate={(i) => setPart1Result({...part1Result, goals: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
