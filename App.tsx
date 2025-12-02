@@ -169,6 +169,7 @@ function App() {
   // Step 1: Public Info
   const [publicInfo, setPublicInfo] = useState<string>('');
   const [companyUrl, setCompanyUrl] = useState<string>('');
+  const [pitchbookInfo, setPitchbookInfo] = useState<string>('');
   
   // Step 2: Founder Input (Now Structured)
   const [founderInput, setFounderInput] = useState<BaselineStatement>(INITIAL_STATEMENT);
@@ -215,6 +216,7 @@ function App() {
       setStatus(AppStatus.IDLE);
       setPublicInfo('');
       setCompanyUrl('');
+      setPitchbookInfo('');
       setFounderInput(INITIAL_STATEMENT);
       setBaselineStatement(null);
       setBaselineSource('');
@@ -245,9 +247,17 @@ function App() {
     }
   };
 
+  const getCombinedPublicInfo = () => {
+    const pb = pitchbookInfo.trim();
+    const pub = publicInfo.trim();
+    if (pb && pub) return `${pb}\n\n${pub}`;
+    return pb || pub;
+  };
+
   // Step 1 -> Step 2
   const generateBaseline = async () => {
-    const trimmedPublicInfo = publicInfo.trim();
+    const combinedPublicInfo = getCombinedPublicInfo();
+    const trimmedPublicInfo = combinedPublicInfo.trim();
     if (!trimmedPublicInfo) return setErrorMsg("Public information is required.");
     if (!hasFetchedPublicInfo) return setErrorMsg("Please fetch public information first.");
 
@@ -334,9 +344,10 @@ function App() {
         Barriers: ${founderInput.SPECIFIC_BARRIERS.join('; ')}
       `;
 
-      const analysisPromise = analyzeSegment(p1, publicInfo, founderContextString);
+      const combinedInfo = getCombinedPublicInfo();
+      const analysisPromise = analyzeSegment(p1, combinedInfo, founderContextString);
       const comparisonPromise = baselineStatement
-        ? generateComparison(baselineStatement, p2, publicInfo)
+        ? generateComparison(baselineStatement, p2, combinedInfo)
         : null;
 
       const [analysisResult, comparisonResult] = await Promise.allSettled([
@@ -390,7 +401,7 @@ function App() {
 
     setStatus(AppStatus.PROCESSING);
     try {
-      const compRes = await generateComparison(baselineStatement, splitData.part2, publicInfo);
+      const compRes = await generateComparison(baselineStatement, splitData.part2, getCombinedPublicInfo());
       
       const rowsWithIds = compRes.rows.map((r, i) => ({
         ...r,
@@ -492,7 +503,7 @@ function App() {
     );
   };
 
-  const isBaselineCurrent = Boolean(baselineStatement && baselineSource === publicInfo.trim());
+  const isBaselineCurrent = Boolean(baselineStatement && baselineSource === getCombinedPublicInfo().trim());
 
   const renderGuideModal = () => {
     if (!isGuideOpen) return null;
@@ -606,7 +617,17 @@ function App() {
                 <p className="text-gray-500 text-sm">Provide the "Public Truth" baseline. You can paste text/files or use Google Search.</p>
               </div>
             </div>
-            
+
+            <div className="mb-6">
+              <label className="block text-sm font-bold text-gray-700 mb-2">Pitchbook Information</label>
+              <textarea
+                className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y text-sm mb-2 font-mono bg-gray-50"
+                placeholder="Copy and paste pitchbook information if available..."
+                value={pitchbookInfo}
+                onChange={(e) => setPitchbookInfo(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">This will be combined with fetched public info when generating the baseline.</p>
+            </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
               {/* Option A: URL */}
