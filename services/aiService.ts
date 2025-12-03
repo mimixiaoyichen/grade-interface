@@ -9,6 +9,7 @@ import { ANALYSIS_PROMPT } from '../prompts/analysis';
 import { SPLIT_PROMPT } from '../prompts/split';
 import { COMPARISON_PROMPT_TEXT } from '../prompts/comparison';
 import BASELINE_PROMPT from '../prompts/baseline.md?raw';
+import { COMPONENT_EVIDENCE_PROMPT } from '../prompts/componentEvidence';
 
 const MODEL_ID = 'gpt-4o';
 
@@ -171,14 +172,33 @@ const comparisonSchema: JsonSchema = {
           transcriptModification: { type: "string" },
           type: { type: "string", enum: ["Modification", "Omission", "Hallucination", "Confirmation"] },
           transcriptEvidence: { type: "string" },
+          publicEvidence: { type: "string" },
+          publicEvidenceContext: { type: "string" },
+          isSupportedByPublic: { type: "boolean" },
           publicSupport: { type: "string" }
         },
-        required: ["component", "baselineText", "transcriptModification", "type", "transcriptEvidence", "publicSupport"],
+        required: ["component", "baselineText", "transcriptModification", "type", "transcriptEvidence", "publicEvidence", "publicEvidenceContext", "isSupportedByPublic", "publicSupport"],
         additionalProperties: false
       }
     }
   },
   required: ["rows"],
+  additionalProperties: false
+};
+
+const componentEvidenceSchema: JsonSchema = {
+  type: "object",
+  properties: {
+    customerStart: { type: "string" },
+    customerEnd: { type: "string" },
+    contextStart: { type: "string" },
+    contextEnd: { type: "string" },
+    goalStart: { type: "string" },
+    goalEnd: { type: "string" },
+    barrierStart: { type: "string" },
+    barrierEnd: { type: "string" }
+  },
+  required: ["customerStart","customerEnd","contextStart","contextEnd","goalStart","goalEnd","barrierStart","barrierEnd"],
   additionalProperties: false
 };
 
@@ -254,37 +274,68 @@ export const fetchPublicInfoFromUrl = async (url: string): Promise<string> => {
     throw new Error(`Unexpected response (not JSON). Status ${resp.status}. Body starts: ${snippet}`);
   };
 
-  if (looksLikeUrl) {
-    const resp = await fetch(`/api/fetch?url=${encodeURIComponent(target.startsWith('http') ? target : `https://${target}`)}`);
-    if (!resp.ok) {
-      throw new Error(`Failed to fetch URL: ${resp.status} ${resp.statusText}`);
+  const formatSearchResults = (data: any, query: string) => {
+    if (data.error) {
+      throw new Error(data.error);
     }
-    const data = await parseJsonSafe(resp);
-    return `${data.summary}\n\n==========================================\n=== VERBATIM PAGE CONTENT (Cleaned) ===\n==========================================\n\n${data.cleaned}`;
-  } else {
-    const resp = await fetch(`/api/search?q=${encodeURIComponent(target)}`);
-    if (!resp.ok) {
-      throw new Error(`Failed to search: ${resp.status} ${resp.statusText}`);
-    }
-    const data = await parseJsonSafe(resp);
     if (!Array.isArray(data.results) || data.results.length === 0) {
-      const filteredNote = Array.isArray(data.filteredOut) && data.filteredOut.length > 0
-        ? `All fetched pages were filtered out (no mention of ${data.targetDomain || 'target'}).`
-        : "No results found.";
-      return filteredNote;
+      if (Array.isArray(data.filteredOut) && data.filteredOut.length > 0) {
+        return `All fetched pages were filtered out (no mention of ${data.targetDomain || 'target'}).`;
+      }
+      return `No results found for "${query}".`;
     }
 
     const combined = data.results.map((r: any, idx: number) => {
       if (r.error) return `Source ${idx + 1}: ${r.url}\nERROR: ${r.error}\n`;
-      return `Source ${idx + 1}: ${r.title || r.url}\n${r.content}\n`;
+      const tag = r.isOfficial ? '[OFFICIAL]' : '[THIRD-PARTY]';
+      return `${tag} Source ${idx + 1}: ${r.title || r.url}\n${r.content}\n`;
     }).join('\n------------------------------\n');
 
-    if (Array.isArray(data.filteredOut) && data.filteredOut.length > 0) {
-      return `${combined}\n\nFiltered out ${data.filteredOut.length} sources that did not mention ${data.targetDomain || 'target domain'}.`;
-    }
+    const filteredNote = Array.isArray(data.filteredOut) && data.filteredOut.length > 0
+      ? `\n\nFiltered out ${data.filteredOut.length} sources that did not mention ${data.targetDomain || 'target domain'}.`
+      : '';
 
-    return combined;
+    const errorNote = Array.isArray(data.errored) && data.errored.length > 0
+      ? `\n\nSkipped ${data.errored.length} sources due to fetch errors.`
+      : '';
+
+    return `${combined}${filteredNote}${errorNote}`;
+  };
+
+  const sections: string[] = [];
+  let searchTerm = target;
+
+  if (looksLikeUrl) {
+    const normalizedUrl = target.startsWith('http') ? target : `https://${target}`;
+    const resp = await fetch(`/api/fetch?url=${encodeURIComponent(normalizedUrl)}`);
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch URL: ${resp.status} ${resp.statusText}`);
+    }
+    const data = await parseJsonSafe(resp);
+    sections.push(`${data.summary}\n\n==========================================\n=== VERBATIM PAGE CONTENT (Cleaned) ===\n==========================================\n\n${data.cleaned}`);
+
+    try {
+      const host = new URL(normalizedUrl).hostname.replace(/^www\./, '');
+      if (host) searchTerm = host;
+    } catch {
+      searchTerm = target;
+    }
   }
+
+  if (searchTerm) {
+    try {
+      const resp = await fetch(`/api/search?q=${encodeURIComponent(searchTerm)}`);
+      if (!resp.ok) {
+        throw new Error(`Failed to search: ${resp.status} ${resp.statusText}`);
+      }
+      const data = await parseJsonSafe(resp);
+      sections.push(`=== Web Search Sources (${searchTerm}) ===\n${formatSearchResults(data, searchTerm)}`);
+    } catch (e: any) {
+      sections.push(`[Search failed: ${e.message}]`);
+    }
+  }
+
+  return sections.join('\n\n').trim();
 };
 
 export const splitTranscript = async (fullTranscript: string): Promise<TranscriptSplit> => {
@@ -367,4 +418,55 @@ export const generateComparison = async (
     comparisonSchema,
     0.1
   );
+};
+
+export const extractComponentEvidence = async (
+  transcriptPart2: string
+) => {
+  const lines = transcriptPart2.split('\n');
+  const numbered = lines.map((line, idx) => {
+    const hex = (0x2000 + idx).toString(16).toUpperCase().slice(-4);
+    return `0x${hex} ${line}`;
+  }).join('\n');
+
+  const res = await callJsonSchema<any>(
+    [
+      { role: 'user', content: COMPONENT_EVIDENCE_PROMPT },
+      { role: 'user', content: `TRANSCRIPT PART 2 (hex-numbered):\n${numbered}` }
+    ],
+    "component_evidence_schema",
+    componentEvidenceSchema,
+    0.1
+  );
+
+  const idToIndex = (id: string) => {
+    const match = id?.trim().toLowerCase();
+    if (!match) return -1;
+    return lines.findIndex((_, i) => {
+      const hex = (0x2000 + i).toString(16).toUpperCase().slice(-4);
+      return `0x${hex}`.toLowerCase() === match;
+    });
+  };
+
+  const sliceRange = (startId: string, endId: string, pad: number) => {
+    const startIdx = idToIndex(startId);
+    const endIdx = idToIndex(endId);
+    if (startIdx === -1 || endIdx === -1) return '';
+    const s = Math.min(startIdx, endIdx);
+    const e = Math.max(startIdx, endIdx);
+    const ctxStart = Math.max(0, s - pad);
+    const ctxEnd = Math.min(lines.length - 1, e + pad);
+    const core = lines.slice(s, e + 1).join('\n');
+    const before = lines.slice(ctxStart, s).join('\n');
+    const after = lines.slice(e + 1, ctxEnd + 1).join('\n');
+    const context = [before, core, after].filter(Boolean).join('\n');
+    return { context, core };
+  };
+
+  return {
+    customer: sliceRange(res.customerStart, res.customerEnd, 4),
+    context: sliceRange(res.contextStart, res.contextEnd, 4),
+    goal: sliceRange(res.goalStart, res.goalEnd, 4),
+    barrier: sliceRange(res.barrierStart, res.barrierEnd, 4)
+  };
 };

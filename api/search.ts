@@ -14,33 +14,60 @@ const cleanHtml = (html: string): string => {
     .trim();
 };
 
-const extractDomain = (raw: string, sources: string[]): string | null => {
-  // try query: find something that looks like a domain
+const extractDomainFromString = (raw: string): string | null => {
+  // find something that looks like a domain
   const match = raw.match(/([a-z0-9-]+(?:\.[a-z0-9-]+)+)/i);
   if (match) return match[1].toLowerCase();
-
-  // fallback: first source host
-  for (const s of sources) {
-    try {
-      const url = new URL(s);
-      return url.hostname.toLowerCase();
-    } catch {
-      continue;
-    }
-  }
   return null;
+};
+
+const buildBrandTokens = (domain: string | null): string[] => {
+  if (!domain) return [];
+  const host = domain.replace(/^www\./, '');
+  const parts = host.split('.');
+  const root = parts.length > 1 ? parts[parts.length - 2] : parts[0];
+  return root.split('-').filter(Boolean).map((p) => p.toLowerCase());
+};
+
+const looksLikeTarget = (
+  content: string,
+  title: string,
+  url: string,
+  targetDomain: string | null,
+  brandTokens: string[],
+  originalQuery: string,
+  mentionsDomainInHtml: boolean
+) => {
+  if (mentionsDomainInHtml && targetDomain) return true;
+
+  const haystacks = [
+    content.toLowerCase(),
+    title.toLowerCase(),
+    url.toLowerCase(),
+    originalQuery.toLowerCase(),
+  ];
+
+  if (targetDomain && haystacks.some((h) => h.includes(targetDomain))) return true;
+  if (brandTokens.length > 0 && haystacks.some((h) => brandTokens.some((t) => h.includes(t)))) return true;
+  return false;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const query = (req.query.q as string || req.body?.q || '').trim();
   if (!query) return res.status(400).json({ error: 'query required' });
 
+  // If the input looks like a domain or URL, expand it into a richer search query
+  const looksLikeDomain = /[a-z0-9-]+\.[a-z]{2,}/i.test(query);
+  const searchQuery = looksLikeDomain
+    ? `Find third-party articles, reviews, press, docs, or blog posts about "${query}". Include news, funding, product pages, case studies, and avoid limiting to the official site.`
+    : query;
+
   try {
     // 1) Ask OpenAI web_search to get sources
     const response = await openai.responses.create({
       model: 'gpt-4o-mini',
       tools: [{ type: 'web_search' }],
-      input: `Search the web for "${query}". Return relevant sources.`,
+      input: `Search the web for "${searchQuery}". Return relevant sources across multiple domains, not just the official site.`,
       include: ['web_search_call.action.sources']
     });
 
@@ -60,16 +87,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
 
-    const targetDomain = extractDomain(query, uniqueUrls);
-    // 2) Fetch top few sources server-side and return cleaned content (no summary)
-    const topUrls = uniqueUrls.slice(0, 5);
+    const targetDomain = looksLikeDomain ? extractDomainFromString(query) : null;
+    const brandTokens = buildBrandTokens(targetDomain);
+    // 2) Fetch top sources server-side and return cleaned content (no summary)
+    const topUrls = uniqueUrls.slice(0, 10);
     const fetched = await Promise.all(topUrls.map(async (u) => {
       try {
         const resp = await fetch(u);
         if (!resp.ok) throw new Error(`Status ${resp.status}`);
         const html = await resp.text();
         const cleaned = cleanHtml(html).slice(0, 12000); // protect payload size
-        const domainMention = targetDomain ? cleaned.toLowerCase().includes(targetDomain) : true;
+        const mentionsDomainInHtml = targetDomain ? html.toLowerCase().includes(targetDomain) : false;
         let isOfficial = false;
         try {
           if (targetDomain) {
@@ -79,17 +107,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } catch {
           isOfficial = false;
         }
-        if (!domainMention && !isOfficial) {
-          return { url: u, title: urlTitles[u] || '', filtered: true, reason: `no mention of ${targetDomain}` };
-        }
-        return { url: u, title: urlTitles[u] || '', content: cleaned, isOfficial };
+        return { url: u, title: urlTitles[u] || '', content: cleaned, isOfficial, mentionsDomainInHtml };
       } catch (e: any) {
         return { url: u, title: urlTitles[u] || '', error: e.message || 'fetch failed' };
       }
     }));
 
-    const results = fetched.filter((r) => !r.filtered && !r.error && r.content);
-    const filteredOut = fetched.filter((r) => r.filtered);
+    const allResults = fetched.filter((r) => !r.error && r.content);
+    const filteredOut: any[] = [];
+
+    const results = allResults.filter((r) => {
+      if (r.isOfficial) return true; // always keep official sources
+      const matches = looksLikeTarget(
+        r.content,
+        r.title || '',
+        r.url,
+        targetDomain,
+        brandTokens,
+        query,
+        r.mentionsDomainInHtml
+      );
+      if (!matches) filteredOut.push({ url: r.url, title: r.title, reason: 'No mention of target domain/brand in content or HTML' });
+      return matches;
+    });
+
+    // If we still have too few, fall back to including any that had content regardless of filtering (already done).
     const errored = fetched.filter((r) => r.error);
 
     res.status(200).json({

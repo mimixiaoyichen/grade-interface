@@ -5,9 +5,9 @@ const sanitize = (val: string | undefined | null) => (val ?? '').replace(/"/g, '
 export const buildCsv = (
   part1Result: StatementResult | null,
   comparisonRows: ComparisonRow[],
-  opts?: { founderInput?: any; baseline?: any }
+  opts?: { founderInput?: any; baseline?: any; part2Notes?: string }
 ) => {
-  let csv = "Section,Component,Original,Modification,Type,Evidence,Public Source Check,Accepted,Notes\n";
+  let csv = "Section,Component,Original,Modification,Interviewer Edit,Type,Evidence,Public Source Check,Accepted,Notes\n";
 
   const addDiscoveryItems = (items: { description: string; quotes: string[]; publicEvidence?: string; userNotes?: string; isVerified?: boolean; }[], label: string) => {
     items.forEach((i) => {
@@ -23,7 +23,7 @@ export const buildCsv = (
   }
 
   comparisonRows.forEach((row) => {
-    csv += `"Part 2 (Feedback)","${row.component}","${sanitize(row.baselineText)}","${sanitize(row.transcriptModification)}","${row.type}","${sanitize(row.transcriptEvidence)}","${sanitize(row.publicSupport)}","${row.isAccepted}","${sanitize((row as any).userNotes || '')}"\n`;
+    csv += `"Part 2 (Feedback)","${row.component}","${sanitize(row.baselineText)}","${sanitize(row.transcriptModification)}","${sanitize(row.reviewerEdit || row.transcriptModification)}","${row.type}","${sanitize(row.transcriptEvidence)}","${sanitize(row.publicSupport)}","${row.isAccepted}","${sanitize(row.reviewerNotes || '')}"\n`;
   });
 
   // Append founder input and baseline info for completeness
@@ -41,6 +41,9 @@ export const buildCsv = (
     csv += `"Baseline","Context","${sanitize(opts.baseline.LIFE_BUSINESS_CONTEXT || '')}"\n`;
     csv += `"Baseline","Job To Be Done","${sanitize(opts.baseline.JOB_TO_BE_DONE || '')}"\n`;
     csv += `"Baseline","Barriers","${sanitize((opts.baseline.SPECIFIC_BARRIERS || []).join('; '))}"\n`;
+  }
+  if (opts?.part2Notes) {
+    csv += `"Part 2","Reviewer Notes","${sanitize(opts.part2Notes)}"\n`;
   }
 
   return csv;

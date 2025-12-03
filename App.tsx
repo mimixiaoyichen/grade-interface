@@ -9,7 +9,8 @@ import {
   splitTranscript, 
   generateBaselineStatement, 
   generateComparison,
-  fetchPublicInfoFromUrl
+  fetchPublicInfoFromUrl,
+  extractComponentEvidence
 } from './services/aiService';
 import buildCsv from './utils/buildCsv';
 import {
@@ -187,6 +188,7 @@ function App() {
 
   // Step 5: Part 2 Comparison
   const [comparisonRows, setComparisonRows] = useState<ComparisonRow[]>([]);
+  const [componentEvidence, setComponentEvidence] = useState<ComponentEvidence | null>(null);
 
   // UI helpers
   const [isStatementOpen, setIsStatementOpen] = useState(true);
@@ -195,6 +197,7 @@ function App() {
   const [hasFetchedPublicInfo, setHasFetchedPublicInfo] = useState(false);
   const [dropboxStatus, setDropboxStatus] = useState<string>('');
   const [hasDropboxToken, setHasDropboxToken] = useState<boolean>(false);
+  const [part2Notes, setPart2Notes] = useState<string>('');
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -402,19 +405,22 @@ function App() {
   const proceedToComparison = async () => {
     if (!baselineStatement || !splitData) return;
 
-    if (comparisonRows.length > 0) {
-      setStep(WizardStep.PART2_COMPARISON);
-      return;
-    }
-
     setStatus(AppStatus.PROCESSING);
     try {
-      const compRes = await generateComparison(baselineStatement, splitData.part2, getCombinedPublicInfo());
+      const [evidenceRes, compRes] = await Promise.all([
+        extractComponentEvidence(splitData.part2),
+        generateComparison(baselineStatement, splitData.part2, getCombinedPublicInfo())
+      ]);
       
+      setComponentEvidence(evidenceRes as any);
+
       const rowsWithIds = compRes.rows.map((r, i) => ({
         ...r,
         id: `row-${i}`,
-        isAccepted: false 
+        isAccepted: false,
+        reviewerEdit: r.transcriptModification,
+        reviewerNotes: '',
+        reviewerDecision: undefined
       }));
       
       setComparisonRows(rowsWithIds);
@@ -436,7 +442,7 @@ function App() {
   };
 
   const handleExport = () => {
-     const csv = buildCsv(part1Result, comparisonRows, { founderInput, baseline: baselineStatement });
+     const csv = buildCsv(part1Result, comparisonRows, { founderInput, baseline: baselineStatement, part2Notes });
      const filename = buildFilename();
      const encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csv}`);
      const link = document.createElement("a");
@@ -453,7 +459,7 @@ function App() {
   const handleSaveDropbox = async (filename?: string, csvOverride?: string) => {
     setDropboxStatus('Saving to Dropbox...');
     try {
-      const csv = csvOverride || buildCsv(part1Result, comparisonRows, { founderInput, baseline: baselineStatement });
+      const csv = csvOverride || buildCsv(part1Result, comparisonRows, { founderInput, baseline: baselineStatement, part2Notes });
       const safeName = filename || buildFilename();
 
       const resp = await fetch('/api/saveDropbox', {
@@ -485,7 +491,7 @@ function App() {
       Boolean(baselineStatement),
       Boolean(baselineStatement),
       Boolean(part1Result),
-      comparisonRows.length > 0 || Boolean(part1Result && splitData)
+      comparisonRows.length > 0
     ];
 
     return (
@@ -505,6 +511,8 @@ function App() {
 
           const handleClick = () => {
             if (idx === step) return;
+            // Prevent jumping to Feedback if comparison not generated
+            if (idx === WizardStep.PART2_COMPARISON && comparisonRows.length === 0) return;
             if (isAvailable) setStep(idx as WizardStep);
           };
 
@@ -535,8 +543,8 @@ function App() {
     const lowerEvidence = evidence.toLowerCase();
     const idx = lowerSource.indexOf(lowerEvidence);
     if (idx === -1) return <span className="text-sm text-gray-700">{evidence}</span>;
-    const start = Math.max(0, idx - 80);
-    const end = Math.min(source.length, idx + evidence.length + 80);
+    const start = Math.max(0, idx - 120);
+    const end = Math.min(source.length, idx + evidence.length + 120);
     const before = source.slice(start, idx);
     const match = source.slice(idx, idx + evidence.length);
     const after = source.slice(idx + evidence.length, end);
@@ -658,8 +666,7 @@ function App() {
             <div className="flex justify-between items-start gap-2">
               <div>
                 <h2 className="text-2xl font-bold mb-1">1. Public Information</h2>
-                <p className="text-gray-500 text-sm">Provide the "Public Truth" baseline. You can paste text/files or use Google Search.</p>
-              </div>
+                </div>
             </div>
 
             <div className="mb-6">
@@ -951,29 +958,6 @@ function App() {
             <AnalysisSection title="Goals" items={part1Result.goals} colorClass="border-orange-200" onUpdate={(i) => setPart1Result({...part1Result, goals: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
             <AnalysisSection title="Barriers" items={part1Result.barriers} colorClass="border-red-200" onUpdate={(i) => setPart1Result({...part1Result, barriers: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
 
-            {/* Draft Statement Footer for Part 1 */}
-            <div className={`fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 shadow-2xl z-30 transition-all duration-300 ease-in-out ${isStatementOpen ? 'h-auto' : 'h-10 overflow-hidden'}`}>
-              <div className="max-w-7xl mx-auto px-4 h-full flex flex-col">
-                <div className="flex items-center justify-between py-2 cursor-pointer select-none border-b border-slate-700" onClick={() => setIsStatementOpen(!isStatementOpen)}>
-                   <div className="flex items-center gap-2">
-                     <h3 className="text-slate-100 font-bold uppercase tracking-wider text-sm">Part 1 Draft Statement</h3>
-                     {!isStatementOpen && <span className="text-slate-400 text-xs truncate max-w-lg"> - {part1Result.draftStatement.substring(0, 50)}...</span>}
-                   </div>
-                   <button className="text-slate-400 hover:text-white transform transition-transform duration-200" style={{ transform: isStatementOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}>
-                     ▼
-                   </button>
-                </div>
-                <div className="pb-6 pt-4">
-                  <textarea
-                    value={part1Result.draftStatement}
-                    onChange={(e) => setPart1Result({...part1Result, draftStatement: e.target.value})}
-                    className="w-full bg-transparent border-none p-0 text-xl font-serif text-white resize-none focus:ring-0"
-                    rows={3}
-                    placeholder="Draft your statement here..."
-                  />
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -997,6 +981,8 @@ function App() {
               rows={comparisonRows}
               onUpdate={setComparisonRows}
               renderPublicHighlight={(text) => highlightEvidence(text)}
+              revealAISuggestions={false}
+              componentEvidence={componentEvidence || undefined}
             />
           </div>
         )}

@@ -57,10 +57,23 @@ export interface ComparisonRow {
   component: 'Customer' | 'Context' | 'Goal' | 'Barrier';
   baselineText: string;
   transcriptModification: string; // The "Correction" or "New Finding"
+  reviewerEdit?: string; // Interviewer's version of the modification
   type: 'Modification' | 'Omission' | 'Hallucination' | 'Confirmation';
   transcriptEvidence: string;
   publicSupport: string; // "Supported: [Quote]" or "Not supported"
+  publicEvidence?: string; // exact quote from public info
+  publicEvidenceContext?: string; // surrounding context from public info
+  isSupportedByPublic?: boolean;
   isAccepted: boolean; // If user accepts the modification
+  reviewerNotes?: string;
+  reviewerDecision?: 'keep' | 'discard';
+}
+
+export interface ComponentEvidence {
+  customer: { context: string; core: string };
+  context: { context: string; core: string };
+  goal: { context: string; core: string };
+  barrier: { context: string; core: string };
 }
 
 export interface ComparisonResult {
