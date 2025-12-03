@@ -2,19 +2,49 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Run and deploy your app
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/drive/10hb0bcgooUNmtt9o95377_ui-9f0ZadH
-
 ## Run Locally
 
-**Prerequisites:**  Node.js
+### Prerequisites
+- Node.js 18+ and npm
+- Vercel CLI (for local API routes): `npm i -g vercel`
 
+### 1) Install dependencies
+```bash
+npm install
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `OPENAI_API_KEY` in `.env.local` (or `.env`) to your OpenAI key
-3. Run the app:
-   `npm run dev`
+### 2) Configure environment variables
+Create a `.env.local` file in the project root (Vite will load it automatically). At minimum you need:
+```
+OPENAI_API_KEY=your-openai-key
+# Optional: enable Dropbox uploads for transcripts
+DROPBOX_ACCESS_TOKEN=your-dropbox-token
+# Optional: Gemini key if you plan to use it elsewhere
+GEMINI_API_KEY=your-gemini-key
+```
+
+> Keep real keys out of version control. The app reads `OPENAI_API_KEY` client-side via Vite’s `define` in `vite.config.ts`.
+
+### 3) Run the app (with serverless APIs)
+Use Vercel’s dev server so `/api/fetch`, `/api/search`, and `/api/saveDropbox` work locally:
+```bash
+vercel dev
+```
+Open http://localhost:3000.
+
+### 4) Alternate: front-end only
+If you already have the API deployed elsewhere, you can preview just the UI:
+```bash
+npm run dev
+```
+This serves the front-end on the port shown in the terminal (default 5173). The built-in `/api` calls will 404 unless you point them at a running backend.
+
+### 5) Build/preview production bundle
+```bash
+npm run build
+npm run preview
+```
