@@ -33,21 +33,27 @@ const looksLikeTarget = (
   content: string,
   title: string,
   url: string,
+  host: string | null,
   targetDomain: string | null,
   brandTokens: string[],
   originalQuery: string,
   mentionsDomainInHtml: boolean
 ) => {
-  if (mentionsDomainInHtml && targetDomain) return true;
-
   const haystacks = [
     content.toLowerCase(),
     title.toLowerCase(),
     url.toLowerCase(),
     originalQuery.toLowerCase(),
+    host?.toLowerCase() || '',
   ];
 
-  if (targetDomain && haystacks.some((h) => h.includes(targetDomain))) return true;
+  if (targetDomain) {
+    if (mentionsDomainInHtml) return true;
+    if (haystacks.some((h) => h.includes(targetDomain))) return true;
+    const hostIsSimilar = host ? host.replace(/^www\./, '').includes(targetDomain) : false;
+    if (hostIsSimilar) return true;
+  }
+
   if (brandTokens.length > 0 && haystacks.some((h) => brandTokens.some((t) => h.includes(t)))) return true;
   return false;
 };
@@ -99,15 +105,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const cleaned = cleanHtml(html).slice(0, 12000); // protect payload size
         const mentionsDomainInHtml = targetDomain ? html.toLowerCase().includes(targetDomain) : false;
         let isOfficial = false;
+        let host: string | null = null;
         try {
           if (targetDomain) {
-            const host = new URL(u).hostname.toLowerCase();
+            host = new URL(u).hostname.toLowerCase();
             isOfficial = host.includes(targetDomain);
           }
         } catch {
           isOfficial = false;
         }
-        return { url: u, title: urlTitles[u] || '', content: cleaned, isOfficial, mentionsDomainInHtml };
+        return { url: u, title: urlTitles[u] || '', content: cleaned, isOfficial, mentionsDomainInHtml, host };
       } catch (e: any) {
         return { url: u, title: urlTitles[u] || '', error: e.message || 'fetch failed' };
       }
@@ -118,17 +125,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const results = allResults.filter((r) => {
       if (r.isOfficial) return true; // always keep official sources
+
       const matches = looksLikeTarget(
         r.content,
         r.title || '',
         r.url,
+        r.host || null,
         targetDomain,
         brandTokens,
         query,
         r.mentionsDomainInHtml
       );
-      if (!matches) filteredOut.push({ url: r.url, title: r.title, reason: 'No mention of target domain/brand in content or HTML' });
-      return matches;
+
+      if (!matches) {
+        filteredOut.push({ url: r.url, title: r.title, reason: 'No mention of target domain/brand in content or HTML' });
+        return false;
+      }
+      return true;
     });
 
     // If we still have too few, fall back to including any that had content regardless of filtering (already done).
