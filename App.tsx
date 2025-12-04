@@ -163,6 +163,37 @@ const INITIAL_STATEMENT: BaselineStatement = {
   SPECIFIC_BARRIERS: ['']
 };
 
+// Toggle Helper
+export const ScriptDropdown = ({ title = "View Script", children }) => (
+  <details className="w-full">
+    <summary
+      className="list-none cursor-pointer select-none text-xs text-gray-500 flex items-center gap-2 justify-end"
+    >
+      <span className="font-medium text-sm">{title}</span>
+
+      <svg
+        className="w-4 h-4 transform transition-transform duration-150"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 011.14.98l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+        </svg>
+
+      <style jsx>{`
+        details[open] svg { transform: rotate(180deg); }
+        summary::-webkit-details-marker { display: none; }
+      `}</style>
+    </summary>
+
+    {/* FULL-WIDTH expanding region */}
+    <div className="w-full mt-3 p-4 bg-gray-50 rounded border border-gray-100 text-sm text-gray-600">
+      {children}
+    </div>
+  </details>
+);
+
 function App() {
   const [step, setStep] = useState<WizardStep>(WizardStep.PUBLIC_INFO);
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
@@ -551,7 +582,7 @@ function App() {
   // --- Render Helpers ---
 
   const renderStepIndicator = () => {
-    const steps = ["Pre-interview", "Founder Input", "Review Baseline", "Transcript", "Discovery (P1)", "Feedback (P2)"];
+    const steps = ["Pre-interview", "Founder Input", "Review Baseline", "Post-interview", "Discovery (P1)", "Feedback (P2)"];
 
     const availability = [
       true,
@@ -836,114 +867,277 @@ function App() {
 
         {/* STEP 2: FOUNDER INPUT (STRUCTURED) */}
         {step === WizardStep.FOUNDER_INPUT && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
-            <h2 className="text-2xl font-bold mb-2">2. Founder's Perspective</h2>
-            <p className="text-gray-500 mb-6 text-sm">What does the founder <em>think</em> the problem is? Enter their manual statement below.</p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
+          <h2 className="text-2xl font-bold mb-2">2. Founder's Perspective</h2>
+          <p className="text-gray-500 mb-6 text-sm">
+            What does the founder <em>think</em> the problem is?
+          </p>
+
+          <div className="space-y-8 mb-8">
+            {/* Introduction */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Introduction
+                </label>
+
+                <ScriptDropdown title="View Script">
+                  <div className="text-sm text-gray-600 whitespace-pre-line">
+            {`
+            Overview:
+            “Hi [Name], thank you for joining today. I’m [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We’re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. With your permission, I’d like to record the conversation so that we can capture your responses accurately. Is that okay?”  
             
-            <div className="space-y-6 mb-8">
-              
-              {/* Solution */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Solution</label>
-                <textarea
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
-                  rows={2}
-                  placeholder="e.g. AI-powered diagnostic tool for radiologists"
-                  value={founderInput.SOLUTION}
-                  onChange={(e) => updateFounderInput('SOLUTION', e.target.value)}
-                />
+            If yes, begin recording. If no, interviewer is expected to take detailed notes.  
+
+            Then set expectations:
+            “I’ll ask a series of open‑ended questions. There are no right or wrong answers—we want to understand your perspective in your own words. This will take about 20 minutes.”  
+
+            Briefly describe the problem statement framework using the following scripted introduction (read verbatim):  
+
+            “Before we dive into the specific questions, I want to quickly explain the structure we’ll use. We follow a simple framework to construct a problem statement of your company. Our goal is to understand the problem your company solves from the customer’s point of view.  
+
+            We’ll walk through five elements:  
+
+            1. Solution means what you’ve built.  
+
+            2. Customer means who is your target customer.  
+
+            3. Customers’ Aspiration means what your customers are trying to accomplish.  
+
+            4. When does the Problem occur means the specific situation or moment when your customers experience the problem.   
+
+            5. Barriers means what prevents your customers from reaching their goals without your help.  
+
+            We will only focus on your perspective as the founder. However, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
+ 
+            `}
+                  </div>
+                </ScriptDropdown>
+              </div>
+            </div>
+
+            {/* Solution */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Solution
+                </label>
+
+                <ScriptDropdown title="View Script">
+                  <div className="text-sm text-gray-600 whitespace-pre-line">
+      {`
+      Lead Question (read verbatim):
+      “Let’s begin with what you’ve built. How would you describe your product or solution? Please describe it  based on information that is publicly available on your startup.”   
+      
+      Smooth Transition: “Thank you—that helps set the stage. Now let’s move on to the next variable. I’d like to understand who your customers are.”
+ `}
+                  </div>
+                </ScriptDropdown>
               </div>
 
-              {/* Customer Segment */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Customer Segment</label>
-                <textarea
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
-                  rows={2}
-                  placeholder="e.g. Radiologists in high-volume trauma centers"
-                  value={founderInput.CUSTOMER_SEGMENT}
-                  onChange={(e) => updateFounderInput('CUSTOMER_SEGMENT', e.target.value)}
-                />
+              <textarea
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
+                rows={2}
+                placeholder="e.g. AI-powered diagnostic tool for radiologists"
+                value={founderInput.SOLUTION}
+                onChange={(e) => updateFounderInput('SOLUTION', e.target.value)}
+              />
+            </div>
+
+            {/* Customer Segment */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Customer Segment
+                </label>
+
+                <ScriptDropdown title="View Script">
+                  <div className="text-sm text-gray-600 whitespace-pre-line">
+      {`
+      Lead Question (verbatim): “Tell me about the people or organizations that face the problem you are trying to solve. Who are they?”  
+
+      Probing (if needed):
+      - “Could you describe them by role or situation rather than demographics?”
+      - “Who is your primary customer today versus aspirational customers?”
+      - “What do these customers have in common?”  
+      
+      Reflective statement before transition: “So you’re saying your core customer is ___. Did I summarize that accurately?  
+      [founder confirms OR offers more revisions] 
+      Now let’s move on to the next variable.”  `}
+                  </div>
+                </ScriptDropdown>
               </div>
 
-              {/* Context */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Context</label>
-                <textarea
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
-                  rows={2}
-                  placeholder="e.g. When reviewing overnight CT scans with limited staff"
-                  value={founderInput.LIFE_BUSINESS_CONTEXT}
-                  onChange={(e) => updateFounderInput('LIFE_BUSINESS_CONTEXT', e.target.value)}
-                />
+              <textarea
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
+                rows={2}
+                placeholder="e.g. Radiologists in high-volume trauma centers"
+                value={founderInput.CUSTOMER_SEGMENT}
+                onChange={(e) => updateFounderInput('CUSTOMER_SEGMENT', e.target.value)}
+              />
+            </div>
+
+            {/* Context */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Context
+                </label>
+
+                <ScriptDropdown title="View Script">
+                  <div className="text-sm text-gray-600 whitespace-pre-line">
+      {`
+        Lead Question (verbatim): “When does this problem occur for your customers? Can you describe the specific situation or moment when they face this challenge?”  
+        
+        Probing:  
+        - “Is there a trigger event when this becomes urgent?”  
+        - “Can you walk me through a recent example?”  
+        
+        Reflective statement before transition:  “So the problem typically arises when ___. Did I capture that accurately? 
+        [founder confirms OR offers more revisions] 
+        Now let’s move on to the next variable.”`}
+                  </div>
+                </ScriptDropdown>
               </div>
 
-              {/* Goal / Job */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Goal</label>
-                <textarea
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
-                  rows={2}
-                  placeholder="e.g. To identify critical fractures accurately and quickly"
-                  value={founderInput.JOB_TO_BE_DONE}
-                  onChange={(e) => updateFounderInput('JOB_TO_BE_DONE', e.target.value)}
-                />
+              <textarea
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
+                rows={2}
+                placeholder="e.g. When reviewing overnight CT scans with limited staff"
+                value={founderInput.LIFE_BUSINESS_CONTEXT}
+                onChange={(e) => updateFounderInput('LIFE_BUSINESS_CONTEXT', e.target.value)}
+              />
+            </div>
+
+            {/* Goal / Job */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Goal
+                </label>
+
+                <ScriptDropdown title="View Script">
+                  <div className="text-sm text-gray-600 whitespace-pre-line">
+      {`Lead Question (verbatim): “What are your customers ultimately trying to achieve when they come to you? To be clear, I’m asking about the progress or goals they’re seeking—not what your product does. Please describe this using only publicly available information about your startup.”  
+
+      Important framing: Ask the founder to answer as the public would understand the startup, based on public external information.  
+
+      Probing:  
+      - “If your product didn’t exist, what would they still be trying to achieve?”  
+      - “What does success look like from their perspective?”  
+      
+      Reflective statement before transition: “What I’m hearing is that their aspiration is ___. Is that correct? 
+      [founder confirms OR offers more revisions] 
+      Now let’s move on to the next variable.”`}
+                  </div>
+                </ScriptDropdown>
               </div>
 
-              {/* Barriers */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Barriers</label>
-                  <button 
-                    onClick={() => updateFounderInput('SPECIFIC_BARRIERS', [...founderInput.SPECIFIC_BARRIERS, ""])} 
+              <textarea
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
+                rows={2}
+                placeholder="e.g. To identify critical fractures accurately and quickly"
+                value={founderInput.JOB_TO_BE_DONE}
+                onChange={(e) => updateFounderInput('JOB_TO_BE_DONE', e.target.value)}
+              />
+            </div>
+
+            {/* Barriers */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Barriers
+                </label>
+
+                <div className="flex items-center gap-3">
+                  <ScriptDropdown title="View Script">
+                    <div className="text-sm text-gray-600 whitespace-pre-line">
+      {`
+      Lead Question (verbatim): “What prevents your customers from achieving their aspirations or goals if your solution doesn’t exist? What specific obstacles stand in their way?”  
+
+      Probing:
+      - “Are these functional, emotional, financial, or social barriers?”
+      - “What have they tried that didn’t work?”
+
+      Reflective statement before transition:  “You mentioned ___ as the main barriers. Does that fully capture them?[founder confirms OR offers more revisions] 
+
+      Now let’s move on to the next variable.”  
+      Transitory wording between part 1 & part 2: 
+      “Awesome - now we have finished part 1 where you created your problem statement. Let’s proceed to the second part.”  
+
+ `}
+                    </div>
+                  </ScriptDropdown>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateFounderInput('SPECIFIC_BARRIERS', [
+                        ...(founderInput.SPECIFIC_BARRIERS || []),
+                        ""
+                      ])
+                    }
                     className="text-xs text-purple-600 hover:underline font-bold"
                   >
                     + Add Barrier
                   </button>
                 </div>
-                <div className="space-y-3">
-                  {founderInput.SPECIFIC_BARRIERS.map((barrier, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <span className="text-gray-400 text-sm py-2 w-4 text-right">{idx + 1}.</span>
-                      <input
-                        type="text"
-                        className="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
-                        placeholder="e.g. Fatigue leads to missed fractures"
-                        value={barrier}
-                        onChange={(e) => {
-                          const newBarriers = [...founderInput.SPECIFIC_BARRIERS];
-                          newBarriers[idx] = e.target.value;
-                          updateFounderInput('SPECIFIC_BARRIERS', newBarriers);
-                        }}
-                      />
-                       <button 
-                        onClick={() => {
-                          const newBarriers = founderInput.SPECIFIC_BARRIERS.filter((_, i) => i !== idx);
-                          updateFounderInput('SPECIFIC_BARRIERS', newBarriers);
-                        }} 
-                        className="text-gray-400 hover:text-red-500 px-2"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
               </div>
 
-            </div>
+              <div className="space-y-3">
+                {(founderInput.SPECIFIC_BARRIERS || []).map((barrier, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <span className="text-gray-400 text-sm py-2 w-4 text-right">
+                      {idx + 1}.
+                    </span>
 
-            <div className="flex justify-between">
-              <button onClick={() => setStep(WizardStep.PUBLIC_INFO)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
-              <button 
-                onClick={submitFounderInput}
-                className="bg-purple-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-purple-700"
-              >
-                Continue →
-              </button>
+                    <input
+                      type="text"
+                      className="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
+                      placeholder="e.g. Fatigue leads to missed fractures"
+                      value={barrier}
+                      onChange={(e) => {
+                        const updated = [...founderInput.SPECIFIC_BARRIERS];
+                        updated[idx] = e.target.value;
+                        updateFounderInput('SPECIFIC_BARRIERS', updated);
+                      }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = founderInput.SPECIFIC_BARRIERS.filter((_, i) => i !== idx);
+                        updateFounderInput('SPECIFIC_BARRIERS', updated);
+                      }}
+                      className="text-gray-400 hover:text-red-500 px-2"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        )}
 
+          <div className="flex justify-between">
+            <button
+              type="button"
+              onClick={() => setStep(WizardStep.PUBLIC_INFO)}
+              className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded"
+            >
+              Back
+            </button>
+
+            <button
+              type="button"
+              onClick={submitFounderInput}
+              className="bg-purple-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-purple-700"
+            >
+              Continue →
+            </button>
+          </div>
+        </div>
+      )}
         {/* STEP 3: BASELINE REVIEW */}
         {step === WizardStep.BASELINE_REVIEW && baselineStatement && (
           <BaselineReview 
