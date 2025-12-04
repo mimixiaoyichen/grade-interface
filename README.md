@@ -30,9 +30,9 @@ GEMINI_API_KEY=your-gemini-key
 > Keep real keys out of version control. The app reads `OPENAI_API_KEY` client-side via Vite’s `define` in `vite.config.ts`.
 
 ### 3) Run the app (with serverless APIs)
-Use Vercel’s dev server so `/api/fetch`, `/api/search`, and `/api/saveDropbox` work locally:
+Use Vercel’s dev server so `/api/fetch`, `/api/search`, and `/api/saveDropbox` work locally. We standardize on port 3000:
 ```bash
-vercel dev
+vercel dev --listen 3000
 ```
 Open http://localhost:3000.
 
