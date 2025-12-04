@@ -10,9 +10,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.26.0",
+    "ffmpeg-static": "^5.2.0",
     "openai": "^4.77.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "undici": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

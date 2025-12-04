@@ -80,6 +80,19 @@ export interface ComparisonResult {
   rows: ComparisonRow[];
 }
 
+export interface TranscriptionResult {
+  text: string;
+  diarizedText: string;
+  segments?: Array<{
+    speaker?: number;
+    start?: number;
+    end?: number;
+    text?: string;
+  }>;
+  words?: any[];
+  speakers?: number;
+}
+
 // Raw responses
 export interface AIAnalysisResponse {
   customers: { description: string; quotes: string[]; publicEvidence: string; publicEvidenceContext?: string; isSupportedByPublic: boolean }[];

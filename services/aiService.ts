@@ -3,7 +3,8 @@ import {
   AIAnalysisResponse, 
   BaselineStatement, 
   ComparisonResult, 
-  TranscriptSplit 
+  TranscriptSplit,
+  TranscriptionResult
 } from '../types';
 import { ANALYSIS_PROMPT } from '../prompts/analysis';
 import { SPLIT_PROMPT } from '../prompts/split';
@@ -200,6 +201,59 @@ const componentEvidenceSchema: JsonSchema = {
   },
   required: ["customerStart","customerEnd","contextStart","contextEnd","goalStart","goalEnd","barrierStart","barrierEnd"],
   additionalProperties: false
+};
+
+const buildDiarizedText = (payload: any) => {
+  const segments = Array.isArray(payload?.segments) ? payload.segments : [];
+  if (!segments.length) return (payload?.text || '').trim();
+
+  const lines = segments.map((seg: any, idx: number) => {
+    const speakerFromWords = Array.isArray(seg?.words) ? seg.words.find((w: any) => w?.speaker !== undefined)?.speaker : undefined;
+    const speakerId = seg?.speaker ?? speakerFromWords;
+    const speakerLabel = speakerId === undefined ? 'Speaker' : `Speaker ${speakerId}`;
+    const segmentText = typeof seg?.text === 'string'
+      ? seg.text
+      : Array.isArray(seg?.words)
+        ? seg.words.map((w: any) => w?.word || '').join('').trim()
+        : '';
+    const text = segmentText?.trim();
+    if (!text) return null;
+    return `${speakerLabel}: ${text}`;
+  }).filter(Boolean);
+
+  if (!lines.length) return (payload?.text || '').trim();
+  return lines.join('\n');
+};
+
+export const transcribeAudioWithDiarization = async (file: File): Promise<TranscriptionResult> => {
+  const toBase64 = (f: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    });
+
+  const fileData = await toBase64(file);
+  const resp = await fetch('/api/transcribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileData, fileName: file.name })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error || `Transcription failed: ${resp.statusText}`);
+  }
+
+  const data = await resp.json();
+  return {
+    text: data.text || '',
+    diarizedText: data.diarizedText || data.text || '',
+    segments: undefined,
+    words: data.words,
+    speakers: data.speakers
+  };
 };
 
 /**

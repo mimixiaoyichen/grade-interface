@@ -10,7 +10,8 @@ import {
   generateBaselineStatement, 
   generateComparison,
   fetchPublicInfoFromUrl,
-  extractComponentEvidence
+  extractComponentEvidence,
+  transcribeAudioWithDiarization
 } from './services/aiService';
 import buildCsv from './utils/buildCsv';
 import {
@@ -20,7 +21,8 @@ import {
   AIAnalysisResponse,
   WizardStep,
   BaselineStatement,
-  ComparisonRow
+  ComparisonRow,
+  ComponentEvidence
 } from './types';
 import INTERVIEWER_GUIDE from './prompts/interviewerGuide.md?raw';
 
@@ -198,6 +200,9 @@ function App() {
   const [dropboxStatus, setDropboxStatus] = useState<string>('');
   const [hasDropboxToken, setHasDropboxToken] = useState<boolean>(false);
   const [part2Notes, setPart2Notes] = useState<string>('');
+  const [transcriptionStatus, setTranscriptionStatus] = useState<string>('');
+  const [isTranscribingAudio, setIsTranscribingAudio] = useState<boolean>(false);
+  const [diarizedPreview, setDiarizedPreview] = useState<string>('');
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -221,6 +226,64 @@ function App() {
     reader.readAsText(file);
   };
 
+  const resetTranscriptFlow = () => {
+    setSplitData(null);
+    setPart1Result(null);
+    setComparisonRows([]);
+    setComponentEvidence(null);
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (!bytes && bytes !== 0) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
+  };
+
+  const handleTranscriptChange = (value: string) => {
+    setTranscript(value);
+    resetTranscriptFlow();
+  };
+
+  const handleTranscriptTextUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileUpload(e, (text) => handleTranscriptChange(text));
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const transcribeAudioFile = async (file: Blob | File) => {
+    resetTranscriptFlow();
+    setErrorMsg('');
+    const sizeLabel = (file as any)?.size ? ` (${formatBytes((file as any).size)})` : '';
+    setTranscriptionStatus(`Uploading audio${sizeLabel}...`);
+    setIsTranscribingAudio(true);
+    try {
+      const baseFile = file instanceof File
+        ? file
+        : new File([file], 'recording.webm', { type: (file as any)?.type || 'audio/webm' });
+      setTranscriptionStatus('Processing with ElevenLabs (diarization)...');
+      const result = await transcribeAudioWithDiarization(baseFile);
+      const diarizedText = (result.diarizedText || result.text || '').trim();
+      setTranscript(diarizedText);
+      setDiarizedPreview(diarizedText);
+      setTranscriptionStatus('Transcription complete. Review or edit below before splitting.');
+    } catch (e: any) {
+      setTranscriptionStatus(`Transcription error: ${e.message || e}`);
+    } finally {
+      setIsTranscribingAudio(false);
+    }
+  };
+
+  const handleAudioFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    transcribeAudioFile(file);
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
   const handleReset = () => {
     if (window.confirm("Are you sure you want to clear all data and start over?")) {
       setStep(WizardStep.PUBLIC_INFO);
@@ -237,6 +300,10 @@ function App() {
       setComparisonRows([]);
       setErrorMsg('');
       setHasFetchedPublicInfo(false);
+      setComponentEvidence(null);
+      setTranscriptionStatus('');
+      setIsTranscribingAudio(false);
+      setDiarizedPreview('');
     }
   };
 
@@ -325,6 +392,7 @@ function App() {
       // Invalidate downstream
       setPart1Result(null);
       setComparisonRows([]);
+      setComponentEvidence(null);
       setStatus(AppStatus.SUCCESS); 
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -897,22 +965,65 @@ function App() {
             {!splitData ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
                 <h2 className="text-2xl font-bold mb-2">4. Upload Transcript</h2>
-                <p className="text-gray-500 mb-6 text-sm">We will split this into "Discovery" (Part 1) and "Feedback" (Part 2).</p>
-                <input type="file" onChange={(e) => handleFileUpload(e, setTranscript)} className="block w-full text-sm text-gray-500 mb-4 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                <p className="text-gray-500 mb-6 text-sm">Split into "Discovery" (Part 1) and "Feedback" (Part 2). Paste text or upload audio and we will transcribe with speaker diarization (auto-splits large files).</p>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                    <h3 className="font-bold text-blue-900 mb-1">Upload audio to transcribe (with diarization)</h3>
+                    <p className="text-xs text-blue-900 mb-3">Drop a Zoom/meeting recording. We auto-split oversized files (25 MB API limit) and transcribe each part, then combine with speaker labels.</p>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleAudioFileUpload}
+                      className="block w-full text-sm text-blue-900 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                    />
+                    {isTranscribingAudio && (
+                      <div className="flex items-center gap-2 text-xs text-blue-900 mt-3">
+                        <svg className="animate-spin h-4 w-4 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Transcribing audio…
+                      </div>
+                    )}
+                    {transcriptionStatus && (
+                      <p className="mt-3 text-xs text-blue-900 bg-white/70 border border-blue-100 rounded p-2">{transcriptionStatus}</p>
+                    )}
+                  </div>
+
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-bold text-gray-800 mb-1">Upload Transcript Text</h3>
+                    <p className="text-xs text-gray-600 mb-3">Paste a transcript or upload a .txt export.</p>
+                    <input
+                      type="file"
+                      accept=".txt,text/plain"
+                      onChange={handleTranscriptTextUpload}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-gray-200 file:text-gray-800 hover:file:bg-gray-300"
+                    />
+                    <p className="text-[11px] text-gray-500 mt-2">Audio transcriptions will auto-fill the text area with speaker labels.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold text-gray-700">Transcript Text</label>
+                  {diarizedPreview && (
+                    <span className="text-xs font-semibold text-green-700">Diarized transcription added</span>
+                  )}
+                </div>
                 <textarea
                   className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y text-xs mb-6"
-                  placeholder="Paste full transcript..."
+                  placeholder="Paste full transcript or upload audio to populate this area with speaker labels..."
                   value={transcript}
-                  onChange={(e) => setTranscript(e.target.value)}
+                  onChange={(e) => handleTranscriptChange(e.target.value)}
                 />
                 <div className="flex justify-between">
                   <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
                   <button 
                     onClick={startSplit}
-                    disabled={status === AppStatus.PROCESSING || !transcript}
+                    disabled={status === AppStatus.PROCESSING || !transcript || isTranscribingAudio}
                     className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {status === AppStatus.PROCESSING ? 'Processing...' : 'Split Transcript →'}
+                    {status === AppStatus.PROCESSING || isTranscribingAudio ? 'Processing...' : 'Split Transcript →'}
                   </button>
                 </div>
               </div>
