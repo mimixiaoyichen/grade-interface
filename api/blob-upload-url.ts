@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createPresignedUploadURL } from '@vercel/blob';
+// NOTE: Not used when uploading directly from the client with a token. Kept for reference.
+// import { createUploadURL } from '@vercel/blob';
 
 // Returns a single-use presigned upload URL for Vercel Blob.
 // Requires BLOB_READ_WRITE_TOKEN set in the environment.
@@ -7,18 +8,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { fileName = 'audio.webm', contentType = 'audio/webm' } = req.body || {};
-    const { url } = await createPresignedUploadURL({
-      access: 'private',
-      contentType,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      expires: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-    });
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.status(500).json({ error: 'BLOB_READ_WRITE_TOKEN is not set on the server.' });
+    }
 
-    // The final blob URL is url.split('?')[0]
-    res.status(200).json({ uploadUrl: url, blobUrl: url.split('?')[0], fileName });
+    // Legacy: we’re not issuing upload URLs anymore since client uploads directly with token.
+    return res.status(400).json({ error: 'Direct upload URL is disabled. Use client-side token-based upload.' });
   } catch (err: any) {
-    console.error('blob-upload-url error', err);
+    console.error('blob-upload-url error', { message: err?.message, stack: err?.stack, tokenSet: Boolean(process.env.BLOB_READ_WRITE_TOKEN) });
     res.status(500).json({ error: err?.message || 'Failed to create upload URL' });
   }
 }

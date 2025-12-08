@@ -3,7 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
-import fetch from 'node-fetch';
 
 const cwd = process.cwd();
 const envLocal = path.join(cwd, '.env.local');
@@ -149,14 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!buffer.length) return res.status(400).json({ error: 'Decoded audio is empty.' });
 
-    // If payload still exceeds MAX_MB after client downsampling, ask user to upload transcript instead
-    if (sizeMb(buffer) > MAX_MB) {
-      return res.status(413).json({
-        error: `Audio is too large (${sizeMb(buffer).toFixed(2)} MB). Please upload a shorter clip or paste a Zoom transcript instead.`,
-      });
-    }
-
-    // Send as-is (no server-side compression)
+    // Send as-is (no server-side compression or size cap)
     const result = await transcribeBuffer(buffer, fileName, modelId, mimeType || guessMime(fileName));
     return res.status(200).json(result);
   } catch (err: any) {

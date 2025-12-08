@@ -330,7 +330,6 @@ export const transcribeAudioWithDiarization = async (file: File): Promise<Transc
   }
 
   let payload: any = {};
-  // If blob exceeds ~4MB, upload to Vercel Blob and pass URL instead of base64
   const sizeMb = blob.size / (1024 * 1024);
   if (sizeMb > 4) {
     const blobUrl = await uploadFileToBlob(file);
