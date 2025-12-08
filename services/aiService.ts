@@ -262,8 +262,57 @@ const buildDiarizedText = (payload: any) => {
   return lines.join('\n');
 };
 
+const downsampleToMonoWav = async (file: File, targetSampleRate = 16000): Promise<Blob> => {
+  const arrayBuffer = await file.arrayBuffer();
+  const audioCtx = new AudioContext();
+  const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+
+  const offlineCtx = new OfflineAudioContext(1, Math.ceil(decoded.duration * targetSampleRate), targetSampleRate);
+  const source = offlineCtx.createBufferSource();
+  const monoBuffer = offlineCtx.createBuffer(1, decoded.length, decoded.sampleRate);
+
+  // Mixdown to mono
+  const tmp = new Float32Array(decoded.length);
+  for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+    decoded.copyFromChannel(tmp, ch);
+    offlineCtx.createBuffer(1, decoded.length, decoded.sampleRate).copyToChannel(tmp, 0);
+  }
+  monoBuffer.copyToChannel(tmp, 0);
+  source.buffer = monoBuffer;
+  source.connect(offlineCtx.destination);
+  source.start(0);
+  const rendered = await offlineCtx.startRendering();
+  const channel = rendered.getChannelData(0);
+
+  // Encode to 16-bit PCM WAV
+  const buffer = new ArrayBuffer(44 + channel.length * 2);
+  const view = new DataView(buffer);
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + channel.length * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // PCM
+  view.setUint16(20, 1, true); // linear PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, targetSampleRate, true);
+  view.setUint32(28, targetSampleRate * 2, true); // byte rate (16-bit mono)
+  view.setUint16(32, 2, true); // block align
+  view.setUint16(34, 16, true); // bits per sample
+  writeString(36, 'data');
+  view.setUint32(40, channel.length * 2, true);
+  let offset = 44;
+  for (let i = 0; i < channel.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, channel[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+};
+
 export const transcribeAudioWithDiarization = async (file: File): Promise<TranscriptionResult> => {
-  const toBase64 = (f: File) =>
+  const toBase64 = (f: Blob) =>
     new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
@@ -271,11 +320,19 @@ export const transcribeAudioWithDiarization = async (file: File): Promise<Transc
       reader.readAsDataURL(f);
     });
 
-  const fileData = await toBase64(file);
+  let blob: Blob = file;
+  try {
+    blob = await downsampleToMonoWav(file, 16000);
+  } catch (err) {
+    console.warn('Client-side downsample failed; sending original file', err);
+    blob = file;
+  }
+
+  const fileData = await toBase64(blob);
   const resp = await fetch('/api/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileData, fileName: file.name })
+    body: JSON.stringify({ fileData, fileName: (file as any).name || 'audio.wav' })
   });
 
   if (!resp.ok) {
