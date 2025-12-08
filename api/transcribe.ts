@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+import fetch from 'node-fetch';
 
 const cwd = process.cwd();
 const envLocal = path.join(cwd, '.env.local');
@@ -130,13 +131,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { fileData, fileName = 'audio.webm', modelId = MODEL_ID } = req.body || {};
-    if (!fileData || typeof fileData !== 'string') {
-      return res.status(400).json({ error: 'fileData (base64 string or data URL) is required.' });
+    const { fileData, fileUrl, fileName = 'audio.webm', modelId = MODEL_ID, mimeType } = req.body || {};
+
+    let buffer: Buffer | null = null;
+
+    if (fileUrl && typeof fileUrl === 'string') {
+      const resp = await fetch(fileUrl);
+      if (!resp.ok) return res.status(400).json({ error: `Failed to fetch blob: ${resp.status}` });
+      const arr = await resp.arrayBuffer();
+      buffer = Buffer.from(arr);
+    } else if (fileData && typeof fileData === 'string') {
+      const b64 = parseDataUrl(fileData);
+      buffer = Buffer.from(b64, 'base64');
+    } else {
+      return res.status(400).json({ error: 'Provide either fileUrl (preferred) or fileData (base64/data URL).' });
     }
 
-    const b64 = parseDataUrl(fileData);
-    const buffer = Buffer.from(b64, 'base64');
     if (!buffer.length) return res.status(400).json({ error: 'Decoded audio is empty.' });
 
     // If payload still exceeds MAX_MB after client downsampling, ask user to upload transcript instead
@@ -147,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Send as-is (no server-side compression)
-    const result = await transcribeBuffer(buffer, fileName, modelId, guessMime(fileName));
+    const result = await transcribeBuffer(buffer, fileName, modelId, mimeType || guessMime(fileName));
     return res.status(200).json(result);
   } catch (err: any) {
     console.error('Transcribe API error:', err);

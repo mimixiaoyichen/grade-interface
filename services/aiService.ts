@@ -13,6 +13,7 @@ import { COMPARISON_PROMPT_TEXT } from '../prompts/comparison';
 import BASELINE_PROMPT from '../prompts/baseline.md?raw';
 import { COMPONENT_EVIDENCE_PROMPT } from '../prompts/componentEvidence';
 import { BARRIER_SELECTOR_PROMPT } from '../prompts/barrierSelector';
+import { uploadFileToBlob } from '../utils/blobUpload';
 import { SUPPORT_CHECK_PROMPT } from '../prompts/supportCheck';
 
 const MODEL_ID = 'gpt-4o';
@@ -328,11 +329,21 @@ export const transcribeAudioWithDiarization = async (file: File): Promise<Transc
     blob = file;
   }
 
-  const fileData = await toBase64(blob);
+  let payload: any = {};
+  // If blob exceeds ~4MB, upload to Vercel Blob and pass URL instead of base64
+  const sizeMb = blob.size / (1024 * 1024);
+  if (sizeMb > 4) {
+    const blobUrl = await uploadFileToBlob(file);
+    payload = { fileUrl: blobUrl, fileName: (file as any).name || 'audio.wav', mimeType: file.type || 'audio/wav' };
+  } else {
+    const fileData = await toBase64(blob);
+    payload = { fileData, fileName: (file as any).name || 'audio.wav' };
+  }
+
   const resp = await fetch('/api/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileData, fileName: (file as any).name || 'audio.wav' })
+    body: JSON.stringify(payload)
   });
 
   if (!resp.ok) {
