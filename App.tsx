@@ -24,138 +24,41 @@ import {
   BaselineStatement,
   ComparisonRow,
   ComponentEvidence,
-  SupportCheckItem
+  SupportCheckItem,
+  SupportRowState
 } from './types';
-import INTERVIEWER_GUIDE from './prompts/interviewerGuide.md?raw';
+import { GUIDE_SECTIONS } from './utils/guideContent';
+import type { GuideSection } from './utils/guideContent';
+import StepIndicator from './components/StepIndicator';
+import SpeakerModal from './components/SpeakerModal';
+import Part2Comparison from './components/Part2Comparison';
 
-type GuideBlock = {
-  subtitle?: string;
-  bullets?: string[];
-  paragraphs?: string[];
+const getComponentText = (
+  source: BaselineStatement | null | undefined,
+  component: ComparisonRow['component']
+) => {
+  if (!source) return '';
+  switch (component) {
+    case 'Solution': return source.SOLUTION || '';
+    case 'Customer': return source.CUSTOMER_SEGMENT || '';
+    case 'Context': return source.LIFE_BUSINESS_CONTEXT || '';
+    case 'Goal': return source.JOB_TO_BE_DONE || '';
+    case 'Barrier': return (source.SPECIFIC_BARRIERS || []).join('; ');
+    default: return '';
+  }
 };
 
-type GuideSection = {
-  title: string;
-  description?: string;
-  blocks: GuideBlock[];
-};
+const buildSupportState = (rows: ComparisonRow[]) =>
+  rows.reduce<Record<string, SupportRowState>>((acc, row) => {
+    acc[row.id] = {
+      omissions: [{ id: `${row.id}-om-0`, text: '', type: 'Omission' }],
+      hallucinations: [{ id: `${row.id}-ha-0`, text: '', type: 'Hallucination' }],
+      loading: false,
+      statusMessage: ''
+    };
+    return acc;
+  }, {});
 
-const GUIDE_SECTIONS: GuideSection[] = [
-  {
-    title: 'Understanding Problem Framework Variables',
-    blocks: [
-      { subtitle: 'Solution — IS', bullets: [
-        'The product, service, or offering the startup provides.',
-        'What the startup has built and is selling/offering to customers.',
-        'Examples: "AI-powered brand monitoring dashboard", "Automated expense management platform", "No-code workflow automation tool".',
-      ]},
-      { subtitle: 'Solution — IS NOT', bullets: [
-        'Vague marketing taglines (e.g., "we help companies succeed").',
-        'Benefits or outcomes (those are goals/aspirations).',
-        'Customer problems or pain points (those are barriers).',
-        'Aspirational products not yet built or publicly launched.',
-      ]},
-      { subtitle: 'Customer Segment — IS', bullets: [
-        'Those whose pain points the startup is alleviating, as represented in public communication.',
-        'Example: "HR managers at 50-200 person companies".',
-      ]},
-      { subtitle: 'Customer Segment — IS NOT', bullets: [
-        'End users who differ from the public target (e.g., kids using app vs. parents as target).',
-        'Aspirational customers not yet publicly targeted (violates public info requirement).',
-      ]},
-    ],
-  },
-  {
-    title: 'Identifying the Real Customer (Multi-Stakeholder)',
-    description: 'Determine the primary customer when multiple stakeholders are involved.',
-    blocks: [
-      { subtitle: 'Decision Framework: Who is the startup solving for?', bullets: [
-        'Website Value Proposition Test: read homepage; whose problem is emphasized? (e.g., "Cut infrastructure costs by 40%" → Finance; "Deploy faster..." → Engineering).',
-        'Case Study/Testimonial Test: whose titles are quoted most?',
-        'Barriers & Goals Alignment Test: from whose perspective are goals/barriers written? (e.g., "Manual approval slows procurement" → Ops).',
-        'Jobs-to-be-Done Anchor: when someone "hires" this product, whose job is being done?',
-      ]},
-      { subtitle: 'Rule of Thumb', paragraphs: [
-        'If the website could be rewritten to appeal to a different stakeholder without changing the product, you picked the wrong customer. The customer is whoever experiences the core barriers/goals emphasized publicly.',
-      ]},
-      { subtitle: 'Multi-Stakeholder Examples', paragraphs: [
-        'Dev tool bought by CFO: Product = CI/CD; CFO approves (cost), Engineering uses (speed). Customer = Engineering (pain points drive purchase).',
-        'Financial software bought by CFO: Product = Expense mgmt; CFO approves/uses; employees submit. Customer = CFO/Finance (controls/compliance).',
-        'Learning platform: HR buys/assigns; employees take courses; managers track. Customer = HR (compliance/onboarding pains).',
-      ]},
-    ],
-  },
-  {
-    title: 'Context, Goals, Barriers',
-    blocks: [
-      { subtitle: 'Context (When) — IS', bullets: [
-        'Specific triggering situation/timing when problem occurs (e.g., "when preparing quarterly business reviews").',
-      ]},
-      { subtitle: 'Context — IS NOT', bullets: [
-        'General business operations; vague timing like "always" or "whenever working".',
-      ]},
-      { subtitle: 'Goal / Aspiration — IS', bullets: [
-        'Desired outcome/end state the customer wants, solution-agnostic (e.g., "track brand visibility in AI search results").',
-        'Future-oriented; emotional or functional progress.',
-      ]},
-      { subtitle: 'Goal / Aspiration — IS NOT', bullets: [
-        'Features of your solution, process steps, or generic "be more efficient".',
-      ]},
-      { subtitle: 'Barriers — IS', bullets: [
-        'Specific obstacles preventing the goal (e.g., "Hard to gather reliable, comparable data on early-stage startups").',
-        'Explain why customers are stuck; map to value props.',
-      ]},
-      { subtitle: 'Barriers — IS NOT', bullets: [
-        'Vague terms like "lack of resources", "complexity", competitive disadvantages.',
-      ]},
-    ],
-  },
-  {
-    title: 'Critical Filtering: Public vs Private & Nonsense',
-    blocks: [
-      { subtitle: 'Interview Technique', bullets: [
-        'Prompt founders: "Think about your website first" to anchor in public info.',
-        'Primary focus: verify solutions/customers match public communication.',
-      ]},
-      { subtitle: 'Filter Problematic Responses', bullets: [
-        'Private information: internal strategy, aspirational not public, sales-only details, customer specifics, pivot plans, undisclosed metrics.',
-        'Nonsensical responses: unrelated to the variable, contradictory, incoherent, or wildly off-website.',
-      ]},
-      { subtitle: 'Red Flags (General)', bullets: [
-        'Answer about wrong variable (barriers vs goals), contradictions, incomprehensible reasoning, off-website divergence.',
-      ]},
-      { subtitle: 'Red Flags (Customer Segment)', bullets: [
-        'Customer doesn’t match any website messaging, 3+ equal segments, "everyone needs this", segments change across variables.',
-      ]},
-      { subtitle: 'Action', bullets: [
-        'Probe: clarify how the response relates to the specific variable.',
-        'Anchor: "When I look at your website, who would I think is your primary customer?"',
-      ]},
-      { subtitle: 'Public Information', bullets: [
-        'Available to anyone: website, LinkedIn, PitchBook/Crunchbase, press, case studies, blog posts, social media.',
-        'If an LLM could find it via web search, it’s PUBLIC.',
-      ]},
-      { subtitle: 'Private Information', bullets: [
-        'Requires insider access/relationship: roadmap, future pivots, sales-call learnings, specific implementations, undisclosed metrics.',
-        'If it requires being an insider/customer, it’s PRIVATE.',
-      ]},
-    ],
-  },
-  {
-    title: 'Corner Cases',
-    blocks: [
-      { subtitle: 'Product Offering Mismatches', bullets: [
-        'Features/customers not on the website → PRIVATE.',
-        'Variables tied to non-public products → PRIVATE.',
-        'Signals: "website is outdated", "we used to", "we’re pivoting", "we spun out".',
-      ]},
-      { subtitle: 'Barriers/Aspirations Not Explicit Online', bullets: [
-        'Barriers/goals are rarely explicit, but should logically follow from public products/customers.',
-        'If tied to non-public products/customers, treat as PRIVATE.',
-      ]},
-    ],
-  },
-];
 
 const INITIAL_STATEMENT: BaselineStatement = {
   SOLUTION: '',
@@ -225,15 +128,13 @@ function App() {
   // Step 5: Part 2 Comparison
   const [comparisonRows, setComparisonRows] = useState<ComparisonRow[]>([]);
   const [componentEvidence, setComponentEvidence] = useState<ComponentEvidence | null>(null);
-  const [supportByRow, setSupportByRow] = useState<Record<string, { omissions: SupportCheckItem[]; hallucinations: SupportCheckItem[]; loading?: boolean }>>({});
+  const [supportByRow, setSupportByRow] = useState<Record<string, SupportRowState>>({});
 
   // UI helpers
   const [isStatementOpen, setIsStatementOpen] = useState(true);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [showGuideGlow, setShowGuideGlow] = useState(false);
   const [hasFetchedPublicInfo, setHasFetchedPublicInfo] = useState(false);
-  const [dropboxStatus, setDropboxStatus] = useState<string>('');
-  const [hasDropboxToken, setHasDropboxToken] = useState<boolean>(false);
   const [part2Notes, setPart2Notes] = useState<string>('');
   const [transcriptionStatus, setTranscriptionStatus] = useState<string>('');
   const [isTranscribingAudio, setIsTranscribingAudio] = useState<boolean>(false);
@@ -247,11 +148,6 @@ function App() {
     if (!hasSeen) {
       setShowGuideGlow(true);
     }
-
-    // Verify Dropbox token availability (server proxy)
-    fetch('/api/saveDropbox', { method: 'OPTIONS' })
-      .then((res) => setHasDropboxToken(res.status === 204))
-      .catch(() => setHasDropboxToken(false));
   }, []);
 
   // --- Logic & Handlers ---
@@ -563,31 +459,11 @@ function App() {
 
       setPart1Result(mapToState(analysisResult.value, 'p1'));
 
-      const getGeneratedComponentText = (component: ComparisonRow['component']) => {
-        const source = baselineGenerated || baselineStatement;
-        if (!source) return '';
-        switch (component) {
-          case 'Solution': return source.SOLUTION || '';
-          case 'Customer': return source.CUSTOMER_SEGMENT || '';
-          case 'Context': return source.LIFE_BUSINESS_CONTEXT || '';
-          case 'Goal': return source.JOB_TO_BE_DONE || '';
-          case 'Barrier': return (source.SPECIFIC_BARRIERS || []).join('; ');
-          default: return '';
-        }
-      };
+      const getGeneratedComponentText = (component: ComparisonRow['component']) =>
+        getComponentText(baselineGenerated || baselineStatement, component);
 
-      const getReviewedComponentText = (component: ComparisonRow['component']) => {
-        const source = baselineStatement;
-        if (!source) return '';
-        switch (component) {
-          case 'Solution': return source.SOLUTION || '';
-          case 'Customer': return source.CUSTOMER_SEGMENT || '';
-          case 'Context': return source.LIFE_BUSINESS_CONTEXT || '';
-          case 'Goal': return source.JOB_TO_BE_DONE || '';
-          case 'Barrier': return (source.SPECIFIC_BARRIERS || []).join('; ');
-          default: return '';
-        }
-      };
+      const getReviewedComponentText = (component: ComparisonRow['component']) =>
+        getComponentText(baselineStatement, component);
 
       const rowsWithIds = comparisonResult.value.rows.map((r, i) => ({
         ...r,
@@ -620,15 +496,7 @@ function App() {
       const finalRows = hasSolution ? rowsWithIds : [solutionRow, ...rowsWithIds];
 
       setComparisonRows(finalRows);
-      setSupportByRow(finalRows.reduce<Record<string, { omissions: SupportCheckItem[]; hallucinations: SupportCheckItem[]; loading?: boolean; statusMessage?: string }>>((acc, row) => {
-        acc[row.id] = {
-          omissions: [{ id: `${row.id}-om-0`, text: '', type: 'Omission' }],
-          hallucinations: [{ id: `${row.id}-ha-0`, text: '', type: 'Hallucination' }],
-          loading: false,
-          statusMessage: ''
-        };
-        return acc;
-      }, {}));
+      setSupportByRow(buildSupportState(finalRows));
 
       if (evidenceResult.status === 'fulfilled') {
         setComponentEvidence(evidenceResult.value as any);
@@ -663,32 +531,6 @@ function App() {
      document.body.appendChild(link);
      link.click();
      document.body.removeChild(link);
-
-     // Also save to Dropbox if configured
-     handleSaveDropbox(filename, csv);
-  };
-
-  const handleSaveDropbox = async (filename?: string, csvOverride?: string) => {
-    setDropboxStatus('Saving to Dropbox...');
-    try {
-      const csv = csvOverride || buildCsv(part1Result, comparisonRows, { founderInput, baseline: baselineStatement, part2Notes });
-      const safeName = filename || buildFilename();
-
-      const resp = await fetch('/api/saveDropbox', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename, content: csv })
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || `Dropbox save failed: ${resp.statusText}`);
-      }
-      const data = await resp.json();
-      setDropboxStatus(`Saved to Dropbox: ${data.path}`);
-    } catch (e: any) {
-      setDropboxStatus(`Dropbox error: ${e.message || e}`);
-    }
   };
 
 
@@ -714,112 +556,6 @@ function App() {
   const currentStepIndex = Math.max(visibleSteps.findIndex((s) => s.id === step), 0);
   const totalSteps = visibleSteps.length;
 
-  const renderStepIndicator = () => {
-    return (
-      <div className="flex justify-between items-center max-w-4xl mx-auto mb-8 relative">
-        <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -z-10"></div>
-        {visibleSteps.map((item, idx) => {
-          const isActive = idx === currentStepIndex;
-          const isCompleted = currentStepIndex > idx;
-          const isAvailable = stepAvailability(item.id);
-          const baseClasses = isActive
-            ? 'bg-blue-600 text-white'
-            : isCompleted
-              ? 'bg-green-500 text-white'
-              : isAvailable
-                ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                : 'bg-gray-300 text-gray-600';
-
-          const handleClick = () => {
-            if (isActive) return;
-            if (isAvailable) setStep(item.id);
-          };
-
-          return (
-            <button
-              key={item.id}
-              onClick={handleClick}
-              className="flex flex-col items-center bg-gray-50 px-2 focus:outline-none"
-              disabled={!isAvailable}
-            >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${baseClasses}`}>
-                {isCompleted ? '✓' : idx + 1}
-              </div>
-              <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-blue-600' : isAvailable ? 'text-blue-700' : 'text-gray-400'}`}>{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const renderSpeakerModal = () => {
-    if (!showSpeakerModal || !speakerLabels.length) return null;
-    const sample = diarizedPreview
-      ? diarizedPreview.split('\n').slice(0, 6).join('\n')
-      : transcript.split('\n').slice(0, 6).join('\n');
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-        <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 relative">
-          <button
-            onClick={() => setShowSpeakerModal(false)}
-            className="absolute right-3 top-3 text-gray-400 hover:text-gray-700"
-            aria-label="Close speaker mapping"
-          >
-            ×
-          </button>
-          <h2 className="text-xl font-bold mb-2 text-gray-900">Label the speakers</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Replace diarization labels (e.g., speaker_0) with names like "Interviewer" or "Founder". This will update the transcript text.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="space-y-2">
-              {speakerLabels.map((label) => (
-                <div key={label} className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded">{label}</span>
-                  <input
-                    type="text"
-                    value={speakerMapping[label] || ''}
-                    onChange={(e) => setSpeakerMapping(prev => ({ ...prev, [label]: e.target.value }))}
-                    placeholder="e.g., Interviewer"
-                    className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="bg-gray-50 border border-gray-200 rounded p-3 text-xs text-gray-700 whitespace-pre-wrap">
-              <div className="text-[10px] uppercase text-gray-500 font-semibold mb-1">Sample transcript</div>
-              {sample || 'No transcript preview available.'}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setShowSpeakerModal(false)}
-              className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800"
-            >
-              Skip
-            </button>
-            <button
-              onClick={() => {
-                const updatedTranscript = applySpeakerMapping(transcript, speakerMapping);
-                const updatedPreview = applySpeakerMapping(diarizedPreview, speakerMapping);
-                setTranscript(updatedTranscript);
-                setDiarizedPreview(updatedPreview);
-                setShowSpeakerModal(false);
-              }}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded hover:bg-blue-700"
-            >
-              Apply labels
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const isBaselineCurrent = Boolean(baselineStatement && baselineSource === getCombinedPublicInfo().trim());
 
   const highlightEvidence = (evidence: string) => {
@@ -841,6 +577,20 @@ function App() {
         {after}{end < source.length ? '…' : ''}
       </span>
     );
+  };
+
+  const speakerSample = (diarizedPreview || transcript || '').split('\n').slice(0, 6).join('\n');
+
+  const handleSpeakerMappingChange = (label: string, value: string) => {
+    setSpeakerMapping((prev) => ({ ...prev, [label]: value }));
+  };
+
+  const handleSpeakerApply = () => {
+    const updatedTranscript = applySpeakerMapping(transcript, speakerMapping);
+    const updatedPreview = applySpeakerMapping(diarizedPreview, speakerMapping);
+    setTranscript(updatedTranscript);
+    setDiarizedPreview(updatedPreview);
+    setShowSpeakerModal(false);
   };
 
   const addSupportItem = (rowId: string, group: 'omission' | 'hallucination') => {
@@ -1004,8 +754,21 @@ function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 pb-32">
         {renderGuideModal()}
-        {renderSpeakerModal()}
-        {renderStepIndicator()}
+        <SpeakerModal
+          open={showSpeakerModal}
+          labels={speakerLabels}
+          mapping={speakerMapping}
+          sampleText={speakerSample}
+          onClose={() => setShowSpeakerModal(false)}
+          onApply={handleSpeakerApply}
+          onMappingChange={handleSpeakerMappingChange}
+        />
+        <StepIndicator
+          steps={visibleSteps}
+          currentStep={step}
+          isStepAvailable={stepAvailability}
+          onStepSelect={setStep}
+        />
         
         {/* Error Message */}
         {errorMsg && (
@@ -1510,32 +1273,18 @@ function App() {
 
         {/* STEP 6: PART 2 COMPARISON (Table) */}
         {step === WizardStep.PART2_COMPARISON && (
-          <div className="animate-fade-in-up pb-20">
-            <div className="flex justify-between items-center mb-8">
-               <div className="flex items-center gap-4">
-                 <button onClick={() => setStep(WizardStep.TRANSCRIPT_UPLOAD)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
-                 <div>
-                   <h2 className="text-2xl font-bold text-gray-800">Part 2 Results: Feedback & Comparison</h2>
-                   <p className="text-gray-500">Comparing Baseline (Public Info) vs. Founder's Transcript Feedback.</p>
-                 </div>
-               </div>
-               <button onClick={handleExport} className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-black font-bold">
-                  Download Full CSV
-               </button>
-            </div>
-
-            <ComparisonTable 
-              rows={comparisonRows}
-              onUpdate={setComparisonRows}
-              renderPublicHighlight={(text) => highlightEvidence(text)}
-              revealAISuggestions={false}
-              componentEvidence={componentEvidence || undefined}
-              supportByRow={supportByRow}
-              onAddSupportItem={addSupportItem}
-              onChangeSupportItem={updateSupportItem}
-              onConfirmSupportCheck={handleSupportConfirm}
-            />
-          </div>
+          <Part2Comparison
+            comparisonRows={comparisonRows}
+            onUpdateRows={setComparisonRows}
+            renderPublicHighlight={(text) => highlightEvidence(text)}
+            componentEvidence={componentEvidence}
+            supportByRow={supportByRow}
+            onAddSupportItem={addSupportItem}
+            onChangeSupportItem={updateSupportItem}
+            onConfirmSupportCheck={handleSupportConfirm}
+            onBack={() => setStep(WizardStep.TRANSCRIPT_UPLOAD)}
+            onExport={handleExport}
+          />
         )}
 
       </main>

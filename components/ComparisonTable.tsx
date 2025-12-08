@@ -1,8 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
-import { ComparisonRow, SupportCheckItem } from '../types';
-
-type RowSupport = { omissions: SupportCheckItem[]; hallucinations: SupportCheckItem[]; loading?: boolean; statusMessage?: string };
+import { ComparisonRow, SupportCheckItem, SupportRowState } from '../types';
 
 interface ComparisonTableProps {
   rows: ComparisonRow[];
@@ -12,7 +10,7 @@ interface ComparisonTableProps {
   onEditChange?: (id: string, val: string) => void;
   onNoteChange?: (id: string, val: string) => void;
   componentEvidence?: { customer?: { context: string; core: string }; context?: { context: string; core: string }; goal?: { context: string; core: string }; barrier?: { context: string; core: string } };
-  supportByRow: Record<string, RowSupport>;
+  supportByRow: Record<string, SupportRowState>;
   onAddSupportItem: (rowId: string, group: 'omission' | 'hallucination') => void;
   onChangeSupportItem: (rowId: string, group: 'omission' | 'hallucination', id: string, val: string) => void;
   onConfirmSupportCheck: (rowId: string) => void;

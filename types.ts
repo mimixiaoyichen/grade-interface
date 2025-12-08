@@ -90,6 +90,13 @@ export interface SupportCheckItem {
   publicSupport?: string;
 }
 
+export interface SupportRowState {
+  omissions: SupportCheckItem[];
+  hallucinations: SupportCheckItem[];
+  loading?: boolean;
+  statusMessage?: string;
+}
+
 export interface TranscriptionResult {
   text: string;
   diarizedText: string;
