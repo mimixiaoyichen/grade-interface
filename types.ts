@@ -54,7 +54,7 @@ export interface BaselineStatement {
 
 export interface ComparisonRow {
   id: string;
-  component: 'Customer' | 'Context' | 'Goal' | 'Barrier';
+  component: 'Solution' | 'Customer' | 'Context' | 'Goal' | 'Barrier';
   baselineText: string;
   transcriptModification: string; // The "Correction" or "New Finding"
   reviewerEdit?: string; // Interviewer's version of the modification
@@ -66,7 +66,7 @@ export interface ComparisonRow {
   isSupportedByPublic?: boolean;
   isAccepted: boolean; // If user accepts the modification
   reviewerNotes?: string;
-  reviewerDecision?: 'keep' | 'discard';
+  reviewerDecision?: 'Supported' | 'Not supported';
 }
 
 export interface ComponentEvidence {
@@ -78,6 +78,16 @@ export interface ComponentEvidence {
 
 export interface ComparisonResult {
   rows: ComparisonRow[];
+}
+
+export interface SupportCheckItem {
+  id: string;
+  text: string;
+  type: 'Omission' | 'Hallucination';
+  isSupportedByPublic?: boolean;
+  publicEvidence?: string;
+  publicEvidenceContext?: string;
+  publicSupport?: string;
 }
 
 export interface TranscriptionResult {

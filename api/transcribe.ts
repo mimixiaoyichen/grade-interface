@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+import { spawn } from 'child_process';
+import ffmpegPath from 'ffmpeg-static';
 
 const cwd = process.cwd();
 const envLocal = path.join(cwd, '.env.local');
@@ -15,6 +17,12 @@ const LANGUAGE_CODE = process.env.LANGUAGE_CODE || 'eng';
 const DIARIZE = process.env.DIARIZATION !== 'false';
 const TAG_AUDIO_EVENTS = process.env.TAG_AUDIO_EVENTS !== 'false';
 const DEFAULT_OUTPUT = 'Speaker transcript not available.';
+const MAX_MB = Number(process.env.MAX_AUDIO_MB || 4.5); // stay under Vercel payload limits
+const SAMPLE_RATE = process.env.SAMPLE_RATE || '16000';
+const BITRATES = (process.env.AUDIO_BITRATES || '16k,14k,12k,10k,8k')
+  .split(',')
+  .map((b) => b.trim())
+  .filter(Boolean);
 
 const client = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY || '',
@@ -23,6 +31,28 @@ const client = new ElevenLabsClient({
 const parseDataUrl = (raw: string) => {
   const match = raw.match(/^data:.*?;base64,(.*)$/);
   return match ? match[1] : raw;
+};
+
+const sizeMb = (buf: Buffer | string) => {
+  const len = typeof buf === 'string' ? fs.statSync(buf).size : buf.length;
+  return len / (1024 * 1024);
+};
+
+const runFfmpeg = (args: string[]) =>
+  new Promise<void>((resolve, reject) => {
+    if (!ffmpegPath) return reject(new Error('ffmpeg-static not found'));
+    const ps = spawn(ffmpegPath, args, { stdio: 'inherit' });
+    ps.on('error', reject);
+    ps.on('exit', (code) => {
+      if (code === 0) return resolve();
+      reject(new Error(`ffmpeg exited with ${code}`));
+    });
+  });
+
+const compressOnce = async (input: string, bitrate: string, output: string) => {
+  const args = ['-y', '-i', input, '-ac', '1', '-ar', SAMPLE_RATE, '-c:a', 'libopus', '-b:a', bitrate, output];
+  await runFfmpeg(args);
+  return output;
 };
 
 const formatTs = (seconds: any) => {
@@ -77,6 +107,46 @@ const buildDiarized = (result: any) => {
   return out.join('\n');
 };
 
+const guessMime = (name: string) => {
+  const lower = (name || '').toLowerCase();
+  if (lower.endsWith('.wav')) return 'audio/wav';
+  if (lower.endsWith('.mp3')) return 'audio/mpeg';
+  if (lower.endsWith('.m4a') || lower.endsWith('.aac')) return 'audio/mp4';
+  if (lower.endsWith('.webm')) return 'audio/webm';
+  if (lower.endsWith('.ogg') || lower.endsWith('.opus')) return 'audio/ogg';
+  return 'audio/ogg';
+};
+
+const transcribeBuffer = async (buffer: Buffer, fileName: string, modelId: string, mimeType?: string) => {
+  const blob = new Blob([buffer], { type: mimeType || guessMime(fileName) });
+
+  const response: any = await client.speechToText.convert({
+    file: blob,
+    modelId,
+    diarize: DIARIZE,
+    tagAudioEvents: TAG_AUDIO_EVENTS,
+    languageCode: LANGUAGE_CODE,
+  });
+
+  const diarizedText = buildDiarized(response);
+  const speakers = Array.isArray(response?.words)
+    ? new Set(
+        response.words
+          .map((w: any) => w?.speaker_id ?? w?.speaker ?? w?.speakerId)
+          .filter((v: any) => v !== undefined && v !== null)
+      ).size
+    : 0;
+
+  return {
+    text: response?.text || diarizedText,
+    diarizedText,
+    speakers,
+    words: response?.words || [],
+    modelUsed: modelId,
+    fileName,
+  };
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!process.env.ELEVENLABS_API_KEY) {
@@ -93,32 +163,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const buffer = Buffer.from(b64, 'base64');
     if (!buffer.length) return res.status(400).json({ error: 'Decoded audio is empty.' });
 
-    const blob = new Blob([buffer], { type: 'audio/m4a' });
+    // If already small enough, send as-is
+    if (sizeMb(buffer) <= MAX_MB) {
+      const result = await transcribeBuffer(buffer, fileName, modelId, guessMime(fileName));
+      return res.status(200).json(result);
+    }
 
-    const response: any = await client.speechToText.convert({
-      file: blob,
-      modelId,
-      diarize: DIARIZE,
-      tagAudioEvents: TAG_AUDIO_EVENTS,
-      languageCode: LANGUAGE_CODE,
-    });
+    if (!ffmpegPath) {
+      return res.status(413).json({ error: 'Audio too large and ffmpeg-static not available to compress.' });
+    }
 
-    const diarizedText = buildDiarized(response);
-    const speakers = Array.isArray(response?.words)
-      ? new Set(
-          response.words
-            .map((w: any) => w?.speaker_id ?? w?.speaker ?? w?.speakerId)
-            .filter((v: any) => v !== undefined && v !== null)
-        ).size
-      : 0;
+    // Temp paths
+    const tmpBase = path.join('/tmp', `${Date.now()}_${Math.random().toString(16).slice(2)}`);
+    const inputPath = `${tmpBase}_input`;
+    fs.writeFileSync(inputPath, buffer);
 
-    return res.status(200).json({
-      text: response?.text || diarizedText,
-      diarizedText,
-      speakers,
-      words: response?.words || [],
-      modelUsed: modelId,
-      fileName,
+    let chosenPath = '';
+
+    for (const br of BITRATES) {
+      const outPath = `${tmpBase}_${br}.ogg`;
+      await compressOnce(inputPath, br, outPath);
+      if (sizeMb(outPath) <= MAX_MB) {
+        chosenPath = outPath;
+        break;
+      }
+    }
+
+    if (chosenPath) {
+      const compressedBuffer = fs.readFileSync(chosenPath);
+      const result = await transcribeBuffer(compressedBuffer, path.basename(chosenPath), modelId, 'audio/ogg');
+      return res.status(200).json(result);
+    }
+
+    return res.status(413).json({
+      error: `Audio is too large even after aggressive compression. Please upload a shorter clip or paste a Zoom transcript instead.`,
     });
   } catch (err: any) {
     console.error('Transcribe API error:', err);

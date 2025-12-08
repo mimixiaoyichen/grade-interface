@@ -1,6 +1,5 @@
 
 import React, { useEffect, useState } from 'react';
-import AnalysisSection from './components/AnalysisSection';
 import SplitVerifier from './components/SplitVerifier';
 import BaselineReview from './components/BaselineReview';
 import ComparisonTable from './components/ComparisonTable';
@@ -11,6 +10,8 @@ import {
   generateComparison,
   fetchPublicInfoFromUrl,
   extractComponentEvidence,
+  selectTopBarriers,
+  checkPublicSupportForItems,
   transcribeAudioWithDiarization
 } from './services/aiService';
 import buildCsv from './utils/buildCsv';
@@ -22,7 +23,8 @@ import {
   WizardStep,
   BaselineStatement,
   ComparisonRow,
-  ComponentEvidence
+  ComponentEvidence,
+  SupportCheckItem
 } from './types';
 import INTERVIEWER_GUIDE from './prompts/interviewerGuide.md?raw';
 
@@ -212,7 +214,7 @@ function App() {
 
   // Step 3: Baseline
   const [baselineStatement, setBaselineStatement] = useState<BaselineStatement | null>(null);
-  const [baselineNotes, setBaselineNotes] = useState<string>('');
+  const [baselineGenerated, setBaselineGenerated] = useState<BaselineStatement | null>(null);
   const [baselineSource, setBaselineSource] = useState<string>('');
 
   // Step 4: Transcript Part 1
@@ -223,6 +225,7 @@ function App() {
   // Step 5: Part 2 Comparison
   const [comparisonRows, setComparisonRows] = useState<ComparisonRow[]>([]);
   const [componentEvidence, setComponentEvidence] = useState<ComponentEvidence | null>(null);
+  const [supportByRow, setSupportByRow] = useState<Record<string, { omissions: SupportCheckItem[]; hallucinations: SupportCheckItem[]; loading?: boolean }>>({});
 
   // UI helpers
   const [isStatementOpen, setIsStatementOpen] = useState(true);
@@ -235,6 +238,9 @@ function App() {
   const [transcriptionStatus, setTranscriptionStatus] = useState<string>('');
   const [isTranscribingAudio, setIsTranscribingAudio] = useState<boolean>(false);
   const [diarizedPreview, setDiarizedPreview] = useState<string>('');
+  const [speakerLabels, setSpeakerLabels] = useState<string[]>([]);
+  const [speakerMapping, setSpeakerMapping] = useState<Record<string, string>>({});
+  const [showSpeakerModal, setShowSpeakerModal] = useState<boolean>(false);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -284,6 +290,39 @@ function App() {
     }
   };
 
+  const extractSpeakerLabels = (text: string) => {
+    const labels = new Set<string>();
+    const regex = /(speaker(?:\s+speaker)?[_\s]*[A-Za-z0-9]+|Speaker\s*[A-Za-z0-9]+)/gi;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const raw = (match[1] || '').trim().replace(/\s+:/, ':');
+      if (raw) labels.add(raw.replace(/[:\s-]+$/, ''));
+    }
+    return Array.from(labels);
+  };
+
+  const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const applySpeakerMapping = (text: string, mapping: Record<string, string>) => {
+    let updated = text;
+    Object.entries(mapping).forEach(([label, replacement]) => {
+      const cleanReplacement = replacement.trim();
+      if (!cleanReplacement) return;
+      const variants = new Set<string>();
+      variants.add(label);
+      const numMatch = label.match(/speaker[_\s]*([0-9]+)/i);
+      if (numMatch) {
+        variants.add(`Speaker ${numMatch[1]}`);
+        variants.add(`speaker_${numMatch[1]}`);
+      }
+      variants.forEach((variant) => {
+        const pattern = new RegExp(`\\b${escapeRegex(variant)}:?`, 'gi');
+        updated = updated.replace(pattern, cleanReplacement);
+      });
+    });
+    return updated;
+  };
+
   const transcribeAudioFile = async (file: Blob | File) => {
     resetTranscriptFlow();
     setErrorMsg('');
@@ -300,6 +339,24 @@ function App() {
       setTranscript(diarizedText);
       setDiarizedPreview(diarizedText);
       setTranscriptionStatus('Transcription complete. Review or edit below before splitting.');
+
+      // Prompt speaker mapping if diarization labels are present
+      const labelsFromText = extractSpeakerLabels(diarizedText);
+      const labelsFromWords = new Set<string>();
+      if (Array.isArray((result as any)?.words)) {
+        ((result as any).words || []).forEach((w: any) => {
+          const s = w?.speaker_id ?? w?.speaker ?? w?.speakerId;
+          if (s !== undefined && s !== null) labelsFromWords.add(`Speaker ${s}`);
+        });
+      }
+      const labels = Array.from(new Set<string>([...labelsFromText, ...Array.from(labelsFromWords)]));
+      if (labels.length) {
+        const initialMap: Record<string, string> = {};
+        labels.forEach((l) => { initialMap[l] = ''; });
+        setSpeakerLabels(labels);
+        setSpeakerMapping(initialMap);
+        setShowSpeakerModal(true);
+      }
     } catch (e: any) {
       setTranscriptionStatus(`Transcription error: ${e.message || e}`);
     } finally {
@@ -325,6 +382,7 @@ function App() {
       setPitchbookInfo('');
       setFounderInput(INITIAL_STATEMENT);
       setBaselineStatement(null);
+      setBaselineGenerated(null);
       setBaselineSource('');
       setTranscript('');
       setSplitData(null);
@@ -333,6 +391,7 @@ function App() {
       setErrorMsg('');
       setHasFetchedPublicInfo(false);
       setComponentEvidence(null);
+      setSupportByRow({});
       setTranscriptionStatus('');
       setIsTranscribingAudio(false);
       setDiarizedPreview('');
@@ -382,10 +441,24 @@ function App() {
     setErrorMsg('');
     try {
       const res = await generateBaselineStatement(trimmedPublicInfo);
-      setBaselineStatement(res);
+      let refinedBarriers = res.SPECIFIC_BARRIERS || [];
+
+      try {
+        const selected = await selectTopBarriers(res, trimmedPublicInfo);
+        if (selected && selected.length) {
+          refinedBarriers = selected;
+        }
+      } catch (selectorError) {
+        console.error('Barrier selection failed', selectorError);
+      }
+
+      const limitedBarriers = refinedBarriers.slice(0, 4);
+      setBaselineStatement({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
+      setBaselineGenerated({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
       setBaselineSource(trimmedPublicInfo);
       // Clear downstream data that depends on baseline
       setComparisonRows([]); 
+      setSupportByRow({});
       setStatus(AppStatus.SUCCESS);
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -425,6 +498,7 @@ function App() {
       setPart1Result(null);
       setComparisonRows([]);
       setComponentEvidence(null);
+      setSupportByRow({});
       setStatus(AppStatus.SUCCESS); 
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -434,19 +508,25 @@ function App() {
 
   // Step 4 Confirm Split -> Analyze Part 1
   const handleConfirmSplitAndAnalyze = async (p1: string, p2: string) => {
-    const isTextUnchanged = splitData && splitData.part1 === p1 && splitData.part2 === p2;
-    if (part1Result && isTextUnchanged) {
-        setStep(WizardStep.PART1_ANALYSIS);
-        return;
+    if (!baselineStatement) {
+      return setErrorMsg("Baseline statement is required before analyzing the transcript.");
     }
 
-    setSplitData(prev => prev ? { ...prev, part1: p1, part2: p2 } : null);
+    const isTextUnchanged = splitData && splitData.part1 === p1 && splitData.part2 === p2;
+    if (part1Result && comparisonRows.length && isTextUnchanged) {
+      setStep(WizardStep.PART2_COMPARISON);
+      return;
+    }
+
+    setSplitData(prev => prev ? { ...prev, part1: p1, part2: p2 } : { part1: p1, part2: p2, reasoning: 'User-provided split' });
     setComparisonRows([]);
+    setComponentEvidence(null);
+    setBaselineGenerated(null);
+    setSupportByRow({});
     
     setStatus(AppStatus.PROCESSING);
     
     try {
-      // Analyze Part 1 (Discovery)
       const founderContextString = `
         Solution: ${founderInput.SOLUTION}
         Customer: ${founderInput.CUSTOMER_SEGMENT}
@@ -457,17 +537,20 @@ function App() {
 
       const combinedInfo = getCombinedPublicInfo();
       const analysisPromise = analyzeSegment(p1, combinedInfo, founderContextString);
-      const comparisonPromise = baselineStatement
-        ? generateComparison(baselineStatement, p2, combinedInfo)
-        : null;
+      const comparisonPromise = generateComparison(baselineStatement, p2, combinedInfo);
+      const evidencePromise = extractComponentEvidence(p2);
 
-      const [analysisResult, comparisonResult] = await Promise.allSettled([
+      const [analysisResult, comparisonResult, evidenceResult] = await Promise.allSettled([
         analysisPromise,
-        comparisonPromise
+        comparisonPromise,
+        evidencePromise
       ]);
 
       if (analysisResult.status === 'rejected') {
         throw analysisResult.reason;
+      }
+      if (comparisonResult.status !== 'fulfilled') {
+        throw comparisonResult.reason || new Error("Comparison generation failed.");
       }
 
       const mapToState = (raw: AIAnalysisResponse, prefix: string): StatementResult => ({
@@ -480,50 +563,79 @@ function App() {
 
       setPart1Result(mapToState(analysisResult.value, 'p1'));
 
-      if (comparisonResult && comparisonResult.status === 'fulfilled' && comparisonResult.value) {
-        const rowsWithIds = comparisonResult.value.rows.map((r, i) => ({
-          ...r,
-          id: `row-${i}`,
-          isAccepted: false
-        }));
-        setComparisonRows(rowsWithIds);
-      } else if (comparisonResult && comparisonResult.status === 'rejected') {
-        // Non-blocking: allow user to retry from Part 2
-        console.error('Comparison generation failed', comparisonResult.reason);
-      }
+      const getGeneratedComponentText = (component: ComparisonRow['component']) => {
+        const source = baselineGenerated || baselineStatement;
+        if (!source) return '';
+        switch (component) {
+          case 'Solution': return source.SOLUTION || '';
+          case 'Customer': return source.CUSTOMER_SEGMENT || '';
+          case 'Context': return source.LIFE_BUSINESS_CONTEXT || '';
+          case 'Goal': return source.JOB_TO_BE_DONE || '';
+          case 'Barrier': return (source.SPECIFIC_BARRIERS || []).join('; ');
+          default: return '';
+        }
+      };
 
-      setStatus(AppStatus.SUCCESS);
-      setStep(WizardStep.PART1_ANALYSIS);
+      const getReviewedComponentText = (component: ComparisonRow['component']) => {
+        const source = baselineStatement;
+        if (!source) return '';
+        switch (component) {
+          case 'Solution': return source.SOLUTION || '';
+          case 'Customer': return source.CUSTOMER_SEGMENT || '';
+          case 'Context': return source.LIFE_BUSINESS_CONTEXT || '';
+          case 'Goal': return source.JOB_TO_BE_DONE || '';
+          case 'Barrier': return (source.SPECIFIC_BARRIERS || []).join('; ');
+          default: return '';
+        }
+      };
 
-    } catch (e: any) {
-      setErrorMsg(e.message);
-      setStatus(AppStatus.ERROR);
-    }
-  };
-
-  // Step 4 (Part 1 View) -> Step 5 (Comparison)
-  const proceedToComparison = async () => {
-    if (!baselineStatement || !splitData) return;
-
-    setStatus(AppStatus.PROCESSING);
-    try {
-      const [evidenceRes, compRes] = await Promise.all([
-        extractComponentEvidence(splitData.part2),
-        generateComparison(baselineStatement, splitData.part2, getCombinedPublicInfo())
-      ]);
-      
-      setComponentEvidence(evidenceRes as any);
-
-      const rowsWithIds = compRes.rows.map((r, i) => ({
+      const rowsWithIds = comparisonResult.value.rows.map((r, i) => ({
         ...r,
+        baselineText: getGeneratedComponentText(r.component) || r.baselineText,
         id: `row-${i}`,
         isAccepted: false,
-        reviewerEdit: r.transcriptModification,
+        reviewerEdit: getReviewedComponentText(r.component) || r.transcriptModification,
         reviewerNotes: '',
         reviewerDecision: undefined
       }));
-      
-      setComparisonRows(rowsWithIds);
+      // Add Solution row (from baseline) if not present
+      const hasSolution = rowsWithIds.some((r) => r.component === 'Solution');
+      const solutionRow: ComparisonRow = {
+        id: 'row-solution',
+        component: 'Solution',
+        baselineText: (baselineGenerated || baselineStatement)?.SOLUTION || '',
+        transcriptModification: (baselineStatement)?.SOLUTION || '',
+        reviewerEdit: (baselineStatement)?.SOLUTION || '',
+        type: 'Confirmation',
+        transcriptEvidence: 'Solution evidence not provided (baseline only).',
+        publicSupport: '',
+        publicEvidence: '',
+        publicEvidenceContext: '',
+        isSupportedByPublic: undefined,
+        isAccepted: false,
+        reviewerNotes: '',
+        reviewerDecision: undefined
+      };
+
+      const finalRows = hasSolution ? rowsWithIds : [solutionRow, ...rowsWithIds];
+
+      setComparisonRows(finalRows);
+      setSupportByRow(finalRows.reduce<Record<string, { omissions: SupportCheckItem[]; hallucinations: SupportCheckItem[]; loading?: boolean; statusMessage?: string }>>((acc, row) => {
+        acc[row.id] = {
+          omissions: [{ id: `${row.id}-om-0`, text: '', type: 'Omission' }],
+          hallucinations: [{ id: `${row.id}-ha-0`, text: '', type: 'Hallucination' }],
+          loading: false,
+          statusMessage: ''
+        };
+        return acc;
+      }, {}));
+
+      if (evidenceResult.status === 'fulfilled') {
+        setComponentEvidence(evidenceResult.value as any);
+      } else {
+        console.error('Component evidence generation failed', evidenceResult.status === 'rejected' ? evidenceResult.reason : 'Unknown error');
+      }
+
       setStatus(AppStatus.SUCCESS);
       setStep(WizardStep.PART2_COMPARISON);
 
@@ -582,25 +694,34 @@ function App() {
 
   // --- Render Helpers ---
 
+  const visibleSteps = [
+    { id: WizardStep.PUBLIC_INFO, label: 'Public Info' },
+    { id: WizardStep.FOUNDER_INPUT, label: 'Founder Input' },
+    { id: WizardStep.BASELINE_REVIEW, label: 'Review Baseline' },
+    { id: WizardStep.TRANSCRIPT_UPLOAD, label: 'Post-interview' },
+    { id: WizardStep.PART2_COMPARISON, label: 'Feedback (P2)' }
+  ];
+
+  const stepAvailability = (id: WizardStep) => {
+    if (id === WizardStep.PUBLIC_INFO) return true;
+    if (id === WizardStep.FOUNDER_INPUT) return Boolean(baselineStatement);
+    if (id === WizardStep.BASELINE_REVIEW) return Boolean(baselineStatement);
+    if (id === WizardStep.TRANSCRIPT_UPLOAD) return Boolean(baselineStatement);
+    if (id === WizardStep.PART2_COMPARISON) return comparisonRows.length > 0;
+    return false;
+  };
+
+  const currentStepIndex = Math.max(visibleSteps.findIndex((s) => s.id === step), 0);
+  const totalSteps = visibleSteps.length;
+
   const renderStepIndicator = () => {
-    const steps = ["Pre-interview", "Founder Input", "Review Baseline", "Transcript", "Discovery (P1)", "Feedback (P2)"];
-
-    const availability = [
-      true,
-      Boolean(baselineStatement),
-      Boolean(baselineStatement),
-      Boolean(baselineStatement),
-      Boolean(part1Result),
-      comparisonRows.length > 0
-    ];
-
     return (
       <div className="flex justify-between items-center max-w-4xl mx-auto mb-8 relative">
         <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -z-10"></div>
-        {steps.map((label, idx) => {
-          const isActive = step === idx;
-          const isCompleted = step > idx;
-          const isAvailable = availability[idx];
+        {visibleSteps.map((item, idx) => {
+          const isActive = idx === currentStepIndex;
+          const isCompleted = currentStepIndex > idx;
+          const isAvailable = stepAvailability(item.id);
           const baseClasses = isActive
             ? 'bg-blue-600 text-white'
             : isCompleted
@@ -610,15 +731,13 @@ function App() {
                 : 'bg-gray-300 text-gray-600';
 
           const handleClick = () => {
-            if (idx === step) return;
-            // Prevent jumping to Feedback if comparison not generated
-            if (idx === WizardStep.PART2_COMPARISON && comparisonRows.length === 0) return;
-            if (isAvailable) setStep(idx as WizardStep);
+            if (isActive) return;
+            if (isAvailable) setStep(item.id);
           };
 
           return (
             <button
-              key={idx}
+              key={item.id}
               onClick={handleClick}
               className="flex flex-col items-center bg-gray-50 px-2 focus:outline-none"
               disabled={!isAvailable}
@@ -626,10 +745,77 @@ function App() {
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${baseClasses}`}>
                 {isCompleted ? '✓' : idx + 1}
               </div>
-              <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-blue-600' : isAvailable ? 'text-blue-700' : 'text-gray-400'}`}>{label}</span>
+              <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-blue-600' : isAvailable ? 'text-blue-700' : 'text-gray-400'}`}>{item.label}</span>
             </button>
           );
         })}
+      </div>
+    );
+  };
+
+  const renderSpeakerModal = () => {
+    if (!showSpeakerModal || !speakerLabels.length) return null;
+    const sample = diarizedPreview
+      ? diarizedPreview.split('\n').slice(0, 6).join('\n')
+      : transcript.split('\n').slice(0, 6).join('\n');
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 relative">
+          <button
+            onClick={() => setShowSpeakerModal(false)}
+            className="absolute right-3 top-3 text-gray-400 hover:text-gray-700"
+            aria-label="Close speaker mapping"
+          >
+            ×
+          </button>
+          <h2 className="text-xl font-bold mb-2 text-gray-900">Label the speakers</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Replace diarization labels (e.g., speaker_0) with names like "Interviewer" or "Founder". This will update the transcript text.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              {speakerLabels.map((label) => (
+                <div key={label} className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded">{label}</span>
+                  <input
+                    type="text"
+                    value={speakerMapping[label] || ''}
+                    onChange={(e) => setSpeakerMapping(prev => ({ ...prev, [label]: e.target.value }))}
+                    placeholder="e.g., Interviewer"
+                    className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded p-3 text-xs text-gray-700 whitespace-pre-wrap">
+              <div className="text-[10px] uppercase text-gray-500 font-semibold mb-1">Sample transcript</div>
+              {sample || 'No transcript preview available.'}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowSpeakerModal(false)}
+              className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800"
+            >
+              Skip
+            </button>
+            <button
+              onClick={() => {
+                const updatedTranscript = applySpeakerMapping(transcript, speakerMapping);
+                const updatedPreview = applySpeakerMapping(diarizedPreview, speakerMapping);
+                setTranscript(updatedTranscript);
+                setDiarizedPreview(updatedPreview);
+                setShowSpeakerModal(false);
+              }}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded hover:bg-blue-700"
+            >
+              Apply labels
+            </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -655,6 +841,74 @@ function App() {
         {after}{end < source.length ? '…' : ''}
       </span>
     );
+  };
+
+  const addSupportItem = (rowId: string, group: 'omission' | 'hallucination') => {
+    setSupportByRow((prev) => {
+      const row = prev[rowId] || { omissions: [], hallucinations: [], loading: false, statusMessage: '' };
+      const list = group === 'omission' ? row.omissions : row.hallucinations;
+      const prefix = group === 'omission' ? 'om' : 'ha';
+      const newItem: SupportCheckItem = { id: `${rowId}-${prefix}-${list.length}-${Date.now()}`, text: '', type: group === 'omission' ? 'Omission' : 'Hallucination' };
+      const updated = {
+        ...row,
+        [group === 'omission' ? 'omissions' : 'hallucinations']: [...list, newItem]
+      };
+      return { ...prev, [rowId]: updated };
+    });
+  };
+
+  const updateSupportItem = (rowId: string, group: 'omission' | 'hallucination', id: string, value: string) => {
+    setSupportByRow((prev) => {
+      const row = prev[rowId];
+      if (!row) return prev;
+      const key = group === 'omission' ? 'omissions' : 'hallucinations';
+      const updatedList = row[key].map((item) => item.id === id ? { ...item, text: value } : item);
+      return { ...prev, [rowId]: { ...row, [key]: updatedList } };
+    });
+  };
+
+  const handleSupportConfirm = async (rowId: string) => {
+    const combinedInfo = getCombinedPublicInfo();
+    const row = supportByRow[rowId];
+    if (!row) return;
+    const items = [...row.omissions, ...row.hallucinations].filter((i) => i.text.trim().length > 0);
+    if (!combinedInfo.trim()) {
+      setErrorMsg("Public information is required before checking public support.");
+      return;
+    }
+    // If no items, simply clear any previous error and exit without blocking
+    if (!items.length) {
+      setErrorMsg('');
+      setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: false, statusMessage: 'No omissions or hallucinations provided to check.' } }));
+      return;
+    }
+    setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: true } }));
+    setErrorMsg('');
+    try {
+      const results = await checkPublicSupportForItems(items, combinedInfo);
+      const applyResults = (list: SupportCheckItem[]) =>
+        list.map((item) => {
+          const match = results.find((r) => r.id === item.id);
+          return match ? { ...item, ...match } : item;
+        });
+      setSupportByRow((prev) => {
+        const current = prev[rowId];
+        if (!current) return prev;
+        return {
+          ...prev,
+          [rowId]: {
+            ...current,
+            omissions: applyResults(current.omissions),
+            hallucinations: applyResults(current.hallucinations),
+            loading: false,
+            statusMessage: ''
+          }
+        };
+      });
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Public support check failed.');
+      setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: false, statusMessage: 'Public support check failed.' } }));
+    }
   };
 
   const renderGuideModal = () => {
@@ -740,7 +994,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
            <div className="flex items-center gap-2">
              <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">BETA</span>
-             <h2 className="text-sm font-semibold text-gray-600">Step {step + 1} of 6</h2>
+             <h2 className="text-sm font-semibold text-gray-600">Step {currentStepIndex + 1} of {totalSteps}</h2>
            </div>
            <button onClick={handleReset} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wide">
              Clear All & Restart
@@ -750,6 +1004,7 @@ function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 pb-32">
         {renderGuideModal()}
+        {renderSpeakerModal()}
         {renderStepIndicator()}
         
         {/* Error Message */}
@@ -851,13 +1106,34 @@ function App() {
               {baselineStatement && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-bold text-gray-800 mb-2">LLM-generated Statement (Preview)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-800">
-                    <div><span className="font-semibold">Solution:</span> {baselineStatement.SOLUTION}</div>
-                    <div><span className="font-semibold">Customer:</span> {baselineStatement.CUSTOMER_SEGMENT}</div>
-                    <div><span className="font-semibold">Context:</span> {baselineStatement.LIFE_BUSINESS_CONTEXT}</div>
-                    <div><span className="font-semibold">Goals:</span> {baselineStatement.JOB_TO_BE_DONE}</div>
-                    <div className="md:col-span-2">
-                      <span className="font-semibold">Barriers:</span> {baselineStatement.SPECIFIC_BARRIERS.join('; ')}
+                  <div className="space-y-4 text-sm text-gray-800">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Solution</p>
+                      <p className="font-semibold text-gray-900">{baselineStatement.SOLUTION || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Customer</p>
+                      <p className="font-semibold text-gray-900">{baselineStatement.CUSTOMER_SEGMENT || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Context</p>
+                      <p className="font-semibold text-gray-900">{baselineStatement.LIFE_BUSINESS_CONTEXT || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Goals</p>
+                      <p className="font-semibold text-gray-900">{baselineStatement.JOB_TO_BE_DONE || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Barriers</p>
+                      {baselineStatement.SPECIFIC_BARRIERS?.length ? (
+                        <ul className="list-disc pl-5 space-y-1">
+                          {baselineStatement.SPECIFIC_BARRIERS.slice(0, 4).map((barrier, idx) => (
+                            <li key={idx}>{barrier}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-gray-500">No barriers available.</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -869,7 +1145,7 @@ function App() {
         {/* STEP 2: FOUNDER INPUT (STRUCTURED) */}
         {step === WizardStep.FOUNDER_INPUT && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
-          <h2 className="text-2xl font-bold mb-2">2. Founder's Perspective</h2>
+          <h2 className="text-2xl font-bold mb-2">2. Founder's Perspective (!!RECORD ZOOM TO COMPUTER!!)</h2>
           <p className="text-gray-500 mb-6 text-sm">
             What does the founder <em>think</em> the problem is?
           </p>
@@ -1143,9 +1419,8 @@ function App() {
         {step === WizardStep.BASELINE_REVIEW && baselineStatement && (
           <BaselineReview 
             baseline={baselineStatement}
-            onUpdate={(updated, notes) => {
+            onUpdate={(updated) => {
               setBaselineStatement(updated);
-              setBaselineNotes(notes);
               // Invalidate Comparison since Baseline changed
               setComparisonRows([]);
             }}
@@ -1159,13 +1434,13 @@ function App() {
           <div className="space-y-6">
             {!splitData ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
-                <h2 className="text-2xl font-bold mb-2">4. Upload Transcript</h2>
+                <h2 className="text-2xl font-bold mb-2">4. Post-interview (Upload Transcript)</h2>
                 <p className="text-gray-500 mb-6 text-sm">Split into "Discovery" (Part 1) and "Feedback" (Part 2). Paste text or upload audio and we will transcribe with speaker diarization (auto-splits large files).</p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
                     <h3 className="font-bold text-blue-900 mb-1">Upload audio to transcribe (with diarization)</h3>
-                    <p className="text-xs text-blue-900 mb-3">Drop a Zoom/meeting recording. We auto-split oversized files (25 MB API limit) and transcribe each part, then combine with speaker labels.</p>
+                    <p className="text-xs text-blue-900 mb-3">Drop the local meeting recording here.</p>
                     <input
                       type="file"
                       accept="audio/*"
@@ -1191,7 +1466,7 @@ function App() {
                     <p className="text-xs text-gray-600 mb-3">Paste a transcript or upload a .txt export.</p>
                     <input
                       type="file"
-                      accept=".txt,text/plain"
+                      accept=".txt,text/plain,.vtt,text/vtt"
                       onChange={handleTranscriptTextUpload}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-gray-200 file:text-gray-800 hover:file:bg-gray-300"
                     />
@@ -1233,46 +1508,12 @@ function App() {
           </div>
         )}
 
-        {/* STEP 5: PART 1 ANALYSIS (Discovery) */}
-        {step === WizardStep.PART1_ANALYSIS && part1Result && (
-          <div className="animate-fade-in-up">
-            <div className="bg-purple-50 border border-purple-200 p-6 rounded-lg mb-8">
-               <h3 className="text-purple-900 font-bold uppercase text-xs tracking-wider mb-2">Reference: Founder's Manual Statement (from Step 2)</h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-purple-900">
-                  <div><span className="font-bold">Customer:</span> {founderInput.CUSTOMER_SEGMENT}</div>
-                  <div><span className="font-bold">Goal:</span> {founderInput.JOB_TO_BE_DONE}</div>
-                  <div className="md:col-span-2"><span className="font-bold">Barriers:</span> {founderInput.SPECIFIC_BARRIERS.join(', ')}</div>
-               </div>
-            </div>
-
-            <div className="flex justify-between items-center mb-6">
-               <h2 className="text-2xl font-bold text-gray-800">Part 1 Results: Discovery</h2>
-               <div className="flex gap-2">
-                 <button onClick={() => setStep(WizardStep.TRANSCRIPT_UPLOAD)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
-                 <button 
-                   onClick={proceedToComparison}
-                   disabled={status === AppStatus.PROCESSING}
-                   className="bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700 text-sm font-bold disabled:opacity-50"
-                 >
-                   {status === AppStatus.PROCESSING ? 'Generating Comparison...' : 'Proceed to Part 2 (Feedback) →'}
-                 </button>
-               </div>
-            </div>
-
-            <AnalysisSection title="Customers" items={part1Result.customers} colorClass="border-purple-200" onUpdate={(i) => setPart1Result({...part1Result, customers: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
-            <AnalysisSection title="Contexts" items={part1Result.contexts} colorClass="border-teal-200" onUpdate={(i) => setPart1Result({...part1Result, contexts: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
-            <AnalysisSection title="Goals" items={part1Result.goals} colorClass="border-orange-200" onUpdate={(i) => setPart1Result({...part1Result, goals: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
-            <AnalysisSection title="Barriers" items={part1Result.barriers} colorClass="border-red-200" onUpdate={(i) => setPart1Result({...part1Result, barriers: i})} renderPublicHighlight={(text) => highlightEvidence(text)} />
-
-          </div>
-        )}
-
         {/* STEP 6: PART 2 COMPARISON (Table) */}
         {step === WizardStep.PART2_COMPARISON && (
           <div className="animate-fade-in-up pb-20">
             <div className="flex justify-between items-center mb-8">
                <div className="flex items-center gap-4">
-                 <button onClick={() => setStep(WizardStep.PART1_ANALYSIS)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
+                 <button onClick={() => setStep(WizardStep.TRANSCRIPT_UPLOAD)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
                  <div>
                    <h2 className="text-2xl font-bold text-gray-800">Part 2 Results: Feedback & Comparison</h2>
                    <p className="text-gray-500">Comparing Baseline (Public Info) vs. Founder's Transcript Feedback.</p>
@@ -1289,6 +1530,10 @@ function App() {
               renderPublicHighlight={(text) => highlightEvidence(text)}
               revealAISuggestions={false}
               componentEvidence={componentEvidence || undefined}
+              supportByRow={supportByRow}
+              onAddSupportItem={addSupportItem}
+              onChangeSupportItem={updateSupportItem}
+              onConfirmSupportCheck={handleSupportConfirm}
             />
           </div>
         )}

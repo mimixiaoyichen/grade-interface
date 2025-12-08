@@ -6,11 +6,14 @@ import {
   TranscriptSplit,
   TranscriptionResult
 } from '../types';
+import type { SupportCheckItem } from '../types';
 import { ANALYSIS_PROMPT } from '../prompts/analysis';
 import { SPLIT_PROMPT } from '../prompts/split';
 import { COMPARISON_PROMPT_TEXT } from '../prompts/comparison';
 import BASELINE_PROMPT from '../prompts/baseline.md?raw';
 import { COMPONENT_EVIDENCE_PROMPT } from '../prompts/componentEvidence';
+import { BARRIER_SELECTOR_PROMPT } from '../prompts/barrierSelector';
+import { SUPPORT_CHECK_PROMPT } from '../prompts/supportCheck';
 
 const MODEL_ID = 'gpt-4o';
 
@@ -160,6 +163,15 @@ const baselineSchema: JsonSchema = {
   additionalProperties: false
 };
 
+const barrierSelectorSchema: JsonSchema = {
+  type: "object",
+  properties: {
+    SPECIFIC_BARRIERS: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 4 }
+  },
+  required: ["SPECIFIC_BARRIERS"],
+  additionalProperties: false
+};
+
 const comparisonSchema: JsonSchema = {
   type: "object",
   properties: {
@@ -168,7 +180,7 @@ const comparisonSchema: JsonSchema = {
       items: {
         type: "object",
         properties: {
-          component: { type: "string", enum: ["Customer", "Context", "Goal", "Barrier"] },
+          component: { type: "string", enum: ["Solution", "Customer", "Context", "Goal", "Barrier"] },
           baselineText: { type: "string" },
           transcriptModification: { type: "string" },
           type: { type: "string", enum: ["Modification", "Omission", "Hallucination", "Confirmation"] },
@@ -200,6 +212,31 @@ const componentEvidenceSchema: JsonSchema = {
     barrierEnd: { type: "string" }
   },
   required: ["customerStart","customerEnd","contextStart","contextEnd","goalStart","goalEnd","barrierStart","barrierEnd"],
+  additionalProperties: false
+};
+
+const supportCheckSchema: JsonSchema = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          text: { type: "string" },
+          type: { type: "string", enum: ["Omission", "Hallucination"] },
+          isSupportedByPublic: { type: "boolean" },
+          publicEvidence: { type: "string" },
+          publicEvidenceContext: { type: "string" },
+          publicSupport: { type: "string" }
+        },
+        required: ["id", "text", "type", "isSupportedByPublic", "publicEvidence", "publicEvidenceContext", "publicSupport"],
+        additionalProperties: false
+      }
+    }
+  },
+  required: ["items"],
   additionalProperties: false
 };
 
@@ -457,6 +494,23 @@ export const generateBaselineStatement = async (
   );
 };
 
+export const selectTopBarriers = async (
+  baseline: BaselineStatement,
+  publicInfo: string
+): Promise<string[]> => {
+  const baselineStr = JSON.stringify(baseline, null, 2);
+  const res = await callJsonSchema<{ SPECIFIC_BARRIERS: string[] }>(
+    [
+      { role: 'user', content: BARRIER_SELECTOR_PROMPT },
+      { role: 'user', content: `BASELINE STATEMENT:\n${baselineStr}\n\nSOURCE MATERIAL:\n${publicInfo || "No public context provided."}` }
+    ],
+    "barrier_selector_schema",
+    barrierSelectorSchema,
+    0.2
+  );
+  return res.SPECIFIC_BARRIERS;
+};
+
 export const generateComparison = async (
   baseline: BaselineStatement,
   transcriptPart2: string,
@@ -472,6 +526,23 @@ export const generateComparison = async (
     comparisonSchema,
     0.1
   );
+};
+
+export const checkPublicSupportForItems = async (
+  items: SupportCheckItem[],
+  publicInfo: string
+): Promise<SupportCheckItem[]> => {
+  const payload = items.map((item, idx) => `${idx + 1}. [${item.type}] id=${item.id} :: ${item.text}`).join('\n');
+  const res = await callJsonSchema<{ items: SupportCheckItem[] }>(
+    [
+      { role: 'user', content: SUPPORT_CHECK_PROMPT },
+      { role: 'user', content: `PUBLIC INFO (truth source):\n${publicInfo || "No public info provided."}\n\nITEMS TO VERIFY:\n${payload}` }
+    ],
+    "support_check_schema",
+    supportCheckSchema,
+    0.1
+  );
+  return res.items || [];
 };
 
 export const extractComponentEvidence = async (

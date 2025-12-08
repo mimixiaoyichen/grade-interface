@@ -1,6 +1,8 @@
 
 import React, { useEffect, useRef } from 'react';
-import { ComparisonRow } from '../types';
+import { ComparisonRow, SupportCheckItem } from '../types';
+
+type RowSupport = { omissions: SupportCheckItem[]; hallucinations: SupportCheckItem[]; loading?: boolean; statusMessage?: string };
 
 interface ComparisonTableProps {
   rows: ComparisonRow[];
@@ -10,9 +12,13 @@ interface ComparisonTableProps {
   onEditChange?: (id: string, val: string) => void;
   onNoteChange?: (id: string, val: string) => void;
   componentEvidence?: { customer?: { context: string; core: string }; context?: { context: string; core: string }; goal?: { context: string; core: string }; barrier?: { context: string; core: string } };
+  supportByRow: Record<string, RowSupport>;
+  onAddSupportItem: (rowId: string, group: 'omission' | 'hallucination') => void;
+  onChangeSupportItem: (rowId: string, group: 'omission' | 'hallucination', id: string, val: string) => void;
+  onConfirmSupportCheck: (rowId: string) => void;
 }
 
-const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, renderPublicHighlight, revealAISuggestions = true, onEditChange, onNoteChange, componentEvidence }) => {
+const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, renderPublicHighlight, revealAISuggestions = true, onEditChange, onNoteChange, componentEvidence, supportByRow, onAddSupportItem, onChangeSupportItem, onConfirmSupportCheck }) => {
   const evidenceRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const highlightRefs = useRef<Record<string, HTMLMarkElement | null>>({});
 
@@ -34,6 +40,65 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
     const newRows = [...rows];
     newRows[index] = { ...newRows[index], isAccepted: !newRows[index].isAccepted };
     onUpdate(newRows);
+  };
+
+  const renderSupportGroup = (
+    title: string,
+    items: SupportCheckItem[],
+    group: 'omission' | 'hallucination',
+    rowId: string
+  ) => {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">{title}</h4>
+          <button
+            onClick={() => onAddSupportItem(rowId, group)}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+          >
+            + Add
+          </button>
+        </div>
+        <div className="space-y-4">
+          {items.map((item, idx) => {
+            const hasResult = typeof item.isSupportedByPublic === 'boolean';
+            const isSupported = item.isSupportedByPublic;
+            const context = item.publicEvidenceContext || item.publicEvidence || item.publicSupport;
+            const badgeClass = hasResult
+              ? isSupported
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-orange-50 border-orange-200 text-orange-800'
+              : 'bg-gray-50 border-gray-200 text-gray-600';
+            const badgeLabel = hasResult
+              ? isSupported
+                ? 'Supported'
+                : 'Not Found'
+              : 'Awaiting check';
+            return (
+              <div key={item.id} className="space-y-2">
+                <textarea
+                  value={item.text}
+                  onChange={(e) => onChangeSupportItem(rowId, group, item.id, e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder={`${title.slice(0, -1)} ${idx + 1}`}
+                  rows={3}
+                />
+                <div className={`text-xs rounded border p-2 min-h-[60px] ${badgeClass}`}>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide mb-1">{badgeLabel}</div>
+                  {hasResult ? (
+                    <div className="text-gray-800">
+                      {renderPublicHighlight ? renderPublicHighlight(context || '') : (context || '—')}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500">Run "Confirm" to see public support.</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   const getBadgeColor = (type: string) => {
@@ -64,7 +129,6 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
               : undefined;
             const evidenceText = ev ? ev.context : row.transcriptEvidence;
             const evidenceCore = ev ? ev.core : row.transcriptEvidence;
-            const publicContext = row.publicEvidenceContext || row.publicEvidence || row.publicSupport;
 
             const renderEvidenceContent = (context: string, core?: string) => {
               if (!context) {
@@ -118,104 +182,75 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
 
             return (
               <div key={row.id} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                  <div className="md:col-span-3 text-gray-600 text-sm space-y-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                  <div className="text-gray-600 text-sm space-y-3">
                     <div className="text-[10px] uppercase text-gray-400 font-semibold">LLM-Generated</div>
                     <div>{row.baselineText || <span className="italic text-gray-300">--</span>}</div>
-                  </div>
-                  <div className="md:col-span-9 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getBadgeColor(row.type)} uppercase`}>
-                        {row.type}
-                      </span>
-                      <span className="text-[11px] text-gray-500 break-normal" title={`Original: ${row.transcriptModification}`}>
-                        Original: {row.transcriptModification}
-                      </span>
-                    </div>
-                    <div className="border border-gray-200 rounded-lg p-2 bg-white shadow-inner">
-                      <textarea
-                        value={row.reviewerEdit ?? row.transcriptModification}
-                        onChange={(e) => {
-                          if (onEditChange) onEditChange(row.id, e.target.value);
-                          const newRows = [...rows];
-                          newRows[globalIndex] = { ...newRows[globalIndex], reviewerEdit: e.target.value };
-                          onUpdate(newRows);
-                        }}
-                        className="w-full text-sm text-gray-900 leading-relaxed border-none focus:outline-none resize-y"
-                        rows={3}
-                      />
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getBadgeColor(row.type)} uppercase`}>
+                          {row.type}
+                        </span>
+                      </div>
+                      <div className="border border-gray-200 rounded-lg p-2 bg-white shadow-inner">
+                        <textarea
+                          value={row.reviewerEdit ?? row.transcriptModification}
+                          onChange={(e) => {
+                            if (onEditChange) onEditChange(row.id, e.target.value);
+                            const newRows = [...rows];
+                            newRows[globalIndex] = { ...newRows[globalIndex], reviewerEdit: e.target.value };
+                            onUpdate(newRows);
+                          }}
+                          className="w-full text-sm text-gray-900 leading-relaxed border-none focus:outline-none resize-y"
+                          rows={3}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="md:col-span-1">
+                  <div className="md:col-span-1 md:h-full">
                     <div className="text-[10px] uppercase text-gray-400 font-semibold mb-1">Evidence (Transcript)</div>
                     <div
-                      className="text-gray-700 text-sm leading-relaxed bg-gray-50 border border-dashed border-gray-200 rounded p-3 max-h-48 overflow-y-auto whitespace-pre-wrap"
+                      className="text-gray-700 text-sm leading-relaxed bg-gray-50 border border-dashed border-gray-200 rounded p-3 max-h-[28rem] md:h-full overflow-y-auto whitespace-pre-wrap"
                       ref={(el) => { evidenceRefs.current[row.id] = el; }}
                     >
                       {renderEvidenceContent(evidenceText, evidenceCore)}
                     </div>
                   </div>
-                  <div className="md:col-span-1">
-                    <div className="text-[10px] uppercase text-gray-400 font-semibold mb-1">Public Source Check</div>
+                </div>
+
+                <div className="mt-4 border-t border-gray-100 pt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">Omissions & Hallucinations</div>
+                      <p className="text-xs text-gray-500">Capture and check public support for this statement.</p>
+                    </div>
                     {(() => {
-                      const pub = publicContext || '';
-                      const isNotFound = typeof row.isSupportedByPublic === 'boolean'
-                        ? !row.isSupportedByPublic
-                        : pub.toLowerCase().includes('not found');
+                      const support = supportByRow[row.id];
+                      const loading = support?.loading;
                       return (
-                       <div className={`text-xs p-2 rounded border space-y-1 ${
-                         isNotFound
-                         ? 'bg-orange-50 border-orange-100 text-orange-800' 
-                         : 'bg-green-50 border-green-100 text-green-800'
-                       }`}>
-                         <div className="text-[10px] font-semibold uppercase tracking-wide">
-                           {isNotFound ? 'Not Found / Private' : 'Supported'}
-                         </div>
-                         <div className="text-gray-800">
-                           {aiVisible ? (renderPublicHighlight ? renderPublicHighlight(pub) : pub) : 'Hidden until review'}
-                         </div>
-                       </div>
+                        <button
+                          onClick={() => onConfirmSupportCheck(row.id)}
+                          disabled={loading}
+                          className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {loading ? 'Checking…' : 'Confirm & Check Public Support'}
+                        </button>
                       );
                     })()}
                   </div>
-                  <div className="md:col-span-1 flex flex-col gap-2">
-                    <div className="text-[10px] uppercase text-gray-400 font-semibold mb-1">Decision</div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          const newRows = [...rows];
-                          newRows[globalIndex] = { ...newRows[globalIndex], reviewerDecision: 'keep', isAccepted: true };
-                          onUpdate(newRows);
-                        }}
-                        className={`px-3 py-1 rounded text-xs font-semibold border ${row.reviewerDecision === 'keep' ? 'bg-green-100 border-green-300 text-green-800' : 'border-gray-200 text-gray-600'}`}
-                      >
-                        Keep
-                      </button>
-                      <button
-                        onClick={() => {
-                          const newRows = [...rows];
-                          newRows[globalIndex] = { ...newRows[globalIndex], reviewerDecision: 'discard', isAccepted: false };
-                          onUpdate(newRows);
-                        }}
-                        className={`px-3 py-1 rounded text-xs font-semibold border ${row.reviewerDecision === 'discard' ? 'bg-red-100 border-red-300 text-red-800' : 'border-gray-200 text-gray-600'}`}
-                      >
-                        Discard
-                      </button>
-                    </div>
-                    <textarea
-                      value={row.reviewerNotes || ''}
-                      onChange={(e) => {
-                        if (onNoteChange) onNoteChange(row.id, e.target.value);
-                        const newRows = [...rows];
-                        newRows[globalIndex] = { ...newRows[globalIndex], reviewerNotes: e.target.value };
-                        onUpdate(newRows);
-                      }}
-                      placeholder="Your notes…"
-                      className="w-full text-xs border border-gray-200 rounded p-1 focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[60px]"
-                    />
-                  </div>
+
+                  {(() => {
+                    const support = supportByRow[row.id] || { omissions: [], hallucinations: [] };
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {renderSupportGroup('Omissions', support.omissions, 'omission', row.id)}
+                        {renderSupportGroup('Hallucinations', support.hallucinations, 'hallucination', row.id)}
+                      </div>
+                    );
+                  })()}
+                  {supportByRow[row.id]?.statusMessage ? (
+                    <div className="text-xs text-gray-500">{supportByRow[row.id]?.statusMessage}</div>
+                  ) : null}
                 </div>
               </div>
             );
@@ -227,6 +262,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
 
   return (
     <div className="animate-fade-in-up">
+      {renderGroup("Solution")}
       {renderGroup("Customer")}
       {renderGroup("Context")}
       {renderGroup("Goal")}
