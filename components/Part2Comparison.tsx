@@ -12,7 +12,8 @@ interface Part2ComparisonProps {
   onChangeSupportItem: (rowId: string, group: 'omission' | 'hallucination', id: string, val: string) => void;
   onConfirmSupportCheck: (rowId: string) => void;
   onBack: () => void;
-  onExport: () => void;
+  onExportJson: () => void;
+  onImportJson?: () => void;
 }
 
 const Part2Comparison: React.FC<Part2ComparisonProps> = ({
@@ -25,7 +26,8 @@ const Part2Comparison: React.FC<Part2ComparisonProps> = ({
   onChangeSupportItem,
   onConfirmSupportCheck,
   onBack,
-  onExport
+  onExportJson,
+  onImportJson
 }) => {
   return (
     <div className="animate-fade-in-up pb-20">
@@ -37,9 +39,19 @@ const Part2Comparison: React.FC<Part2ComparisonProps> = ({
             <p className="text-gray-500">Comparing Baseline (Public Info) vs. Founder's Transcript Feedback.</p>
           </div>
         </div>
-        <button onClick={onExport} className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-black font-bold">
-          Download Full CSV
-        </button>
+        <div className="flex items-center gap-2">
+          {onImportJson && (
+            <button
+              onClick={onImportJson}
+              className="border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm hover:bg-gray-50 font-semibold"
+            >
+              Load JSON
+            </button>
+          )}
+          <button onClick={onExportJson} className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-black font-bold">
+            Download JSON
+          </button>
+        </div>
       </div>
 
       <ComparisonTable

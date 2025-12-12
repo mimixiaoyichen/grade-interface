@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import SplitVerifier from './components/SplitVerifier';
 import BaselineReview from './components/BaselineReview';
 import ComparisonTable from './components/ComparisonTable';
@@ -14,7 +14,7 @@ import {
   checkPublicSupportForItems,
   transcribeAudioWithDiarization
 } from './services/aiService';
-import buildCsv from './utils/buildCsv';
+import buildExportJson from './utils/buildExportJson';
 import {
   AppStatus, 
   StatementResult, 
@@ -32,6 +32,7 @@ import type { GuideSection } from './utils/guideContent';
 import StepIndicator from './components/StepIndicator';
 import SpeakerModal from './components/SpeakerModal';
 import Part2Comparison from './components/Part2Comparison';
+import ConsentModal from './components/ConsentModal';
 
 const getComponentText = (
   source: BaselineStatement | null | undefined,
@@ -104,6 +105,7 @@ function App() {
   const [step, setStep] = useState<WizardStep>(WizardStep.PUBLIC_INFO);
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // --- State Data ---
   
@@ -118,6 +120,7 @@ function App() {
   // Step 3: Baseline
   const [baselineStatement, setBaselineStatement] = useState<BaselineStatement | null>(null);
   const [baselineGenerated, setBaselineGenerated] = useState<BaselineStatement | null>(null);
+  const [baselineLLM, setBaselineLLM] = useState<BaselineStatement | null>(null);
   const [baselineSource, setBaselineSource] = useState<string>('');
 
   // Step 4: Transcript Part 1
@@ -142,6 +145,10 @@ function App() {
   const [speakerLabels, setSpeakerLabels] = useState<string[]>([]);
   const [speakerMapping, setSpeakerMapping] = useState<Record<string, string>>({});
   const [showSpeakerModal, setShowSpeakerModal] = useState<boolean>(false);
+  const [isConsentOpen, setIsConsentOpen] = useState<boolean>(false);
+  const [founderRecordConsent, setFounderRecordConsent] = useState<boolean>(false);
+  const [internationalFounder, setInternationalFounder] = useState<boolean>(false);
+  const [founderDataConsent, setFounderDataConsent] = useState<boolean>(false);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -219,6 +226,13 @@ function App() {
     return updated;
   };
 
+  const handleInternationalConsentChange = (value: boolean) => {
+    setInternationalFounder(value);
+    if (!value) {
+      setFounderDataConsent(false);
+    }
+  };
+
   const transcribeAudioFile = async (file: Blob | File) => {
     resetTranscriptFlow();
     setErrorMsg('');
@@ -279,11 +293,13 @@ function App() {
       setFounderInput(INITIAL_STATEMENT);
       setBaselineStatement(null);
       setBaselineGenerated(null);
+      setBaselineLLM(null);
       setBaselineSource('');
       setTranscript('');
       setSplitData(null);
       setPart1Result(null);
       setComparisonRows([]);
+      setPart2Notes('');
       setErrorMsg('');
       setHasFetchedPublicInfo(false);
       setComponentEvidence(null);
@@ -291,6 +307,13 @@ function App() {
       setTranscriptionStatus('');
       setIsTranscribingAudio(false);
       setDiarizedPreview('');
+      setSpeakerLabels([]);
+      setSpeakerMapping({});
+      setShowSpeakerModal(false);
+      setIsConsentOpen(false);
+      setFounderRecordConsent(false);
+      setInternationalFounder(false);
+      setFounderDataConsent(false);
     }
   };
 
@@ -351,6 +374,7 @@ function App() {
       const limitedBarriers = refinedBarriers.slice(0, 4);
       setBaselineStatement({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
       setBaselineGenerated({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
+      setBaselineLLM({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
       setBaselineSource(trimmedPublicInfo);
       // Clear downstream data that depends on baseline
       setComparisonRows([]); 
@@ -513,24 +537,262 @@ function App() {
     }
   };
 
-  // --- Export ---
-  const buildFilename = () => {
+  // --- Import / Export ---
+  const buildFilename = (ext = 'csv') => {
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const base = companyUrl || 'analysis';
     const safeBase = base.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 40) || 'analysis';
-    return `${safeBase}-${ts}.csv`;
+    return `${safeBase}-${ts}.${ext}`;
   };
 
-  const handleExport = () => {
-     const csv = buildCsv(part1Result, comparisonRows, { founderInput, baseline: baselineStatement, part2Notes });
-     const filename = buildFilename();
-     const encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csv}`);
-     const link = document.createElement("a");
-     link.setAttribute("href", encodedUri);
-     link.setAttribute("download", filename);
-     document.body.appendChild(link);
-     link.click();
-     document.body.removeChild(link);
+  const handleExportJson = () => {
+    const json = buildExportJson({
+      companyUrl,
+      pitchbookInfo,
+      publicInfo,
+      baselineSource,
+      baselineLLM: baselineLLM || baselineGenerated || baselineStatement,
+      founderStatement: baselineStatement,
+      part1Result,
+      comparisonRows,
+      supportByRow,
+      founderInput,
+      part2Notes,
+      transcript,
+      splitData,
+      founderRecordConsent,
+      internationalFounder,
+      founderDataConsent
+    });
+    const filename = buildFilename('json');
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const hydrateFromExport = (data: any) => {
+    const normalizeBaseline = (raw: any): BaselineStatement | null => {
+      if (!raw) return null;
+      const barriers = Array.isArray(raw.SPECIFIC_BARRIERS) ? raw.SPECIFIC_BARRIERS : [];
+      return {
+        SOLUTION: raw.SOLUTION || '',
+        CUSTOMER_SEGMENT: raw.CUSTOMER_SEGMENT || '',
+        LIFE_BUSINESS_CONTEXT: raw.LIFE_BUSINESS_CONTEXT || '',
+        JOB_TO_BE_DONE: raw.JOB_TO_BE_DONE || '',
+        SPECIFIC_BARRIERS: barriers.length ? barriers : ['']
+      };
+    };
+
+    const normalizeAnalysisItems = (items: any[], prefix: string) => {
+      if (!Array.isArray(items)) return [];
+      return items.map((item, idx) => ({
+        id: item.id || `${prefix}-${idx}`,
+        description: item.description || '',
+        quotes: Array.isArray(item.quotes) ? item.quotes : [],
+        isVerified: Boolean(item.isVerified),
+        userNotes: item.userNotes || '',
+        publicEvidence: item.publicEvidence || '',
+        publicEvidenceContext: item.publicEvidenceContext || '',
+        isSupportedByPublic: typeof item.isSupportedByPublic === 'boolean' ? item.isSupportedByPublic : undefined
+      }));
+    };
+
+    const normalizeStatementResult = (raw: any, prefix: string): StatementResult | null => {
+      if (!raw) return null;
+      return {
+        customers: normalizeAnalysisItems(raw.customers, `${prefix}-c`),
+        contexts: normalizeAnalysisItems(raw.contexts, `${prefix}-ctx`),
+        goals: normalizeAnalysisItems(raw.goals, `${prefix}-g`),
+        barriers: normalizeAnalysisItems(raw.barriers, `${prefix}-b`),
+        draftStatement: raw.draftStatement || ''
+      };
+    };
+
+    const normalizeComparisonRows = (rawRows: any[]): ComparisonRow[] => {
+      if (!Array.isArray(rawRows)) return [];
+      const allowedComponents = new Set(['Solution', 'Customer', 'Context', 'Goal', 'Barrier']);
+      const allowedTypes = new Set(['Modification', 'Omission', 'Hallucination', 'Confirmation']);
+      return rawRows.map((row, idx) => {
+        if (!row || !allowedComponents.has(row.component)) return null;
+        const type = allowedTypes.has(row.type) ? row.type : 'Modification';
+        return {
+          id: row.id || `row-${idx}`,
+          component: row.component,
+          baselineText: row.baselineText || '',
+          transcriptModification: row.transcriptModification || '',
+          reviewerEdit: row.reviewerEdit || row.transcriptModification || '',
+          type,
+          transcriptEvidence: row.transcriptEvidence || '',
+          publicSupport: row.publicSupport || '',
+          publicEvidence: row.publicEvidence || '',
+          publicEvidenceContext: row.publicEvidenceContext || '',
+          isSupportedByPublic: typeof row.isSupportedByPublic === 'boolean' ? row.isSupportedByPublic : undefined,
+          isAccepted: Boolean(row.isAccepted),
+          reviewerNotes: row.reviewerNotes || '',
+          reviewerDecision: row.reviewerDecision
+        };
+      }).filter(Boolean) as ComparisonRow[];
+    };
+
+    const normalizeSupportItems = (items: any[], defaultType: 'Omission' | 'Hallucination') => {
+      if (!Array.isArray(items)) return [];
+      return items.map((item, idx) => ({
+        id: item.id || `${defaultType.toLowerCase()}-${idx}-${Date.now()}`,
+        text: item.text || '',
+        type: item.type === 'Hallucination' ? 'Hallucination' : 'Omission',
+        isSupportedByPublic: typeof item.isSupportedByPublic === 'boolean' ? item.isSupportedByPublic : undefined,
+        publicEvidence: item.publicEvidence || '',
+        publicEvidenceContext: item.publicEvidenceContext || '',
+        publicSupport: item.publicSupport || ''
+      }));
+    };
+
+    const metadata = data?.metadata || {};
+    const statements = data?.statements || {};
+    const publicBlock = data?.public_info || {};
+    const fetchedPublic = publicBlock.fetched || publicBlock.publicInfo || data?.publicInfo || '';
+    const pitchbookText = publicBlock.pitchbook || metadata.pitchbookInfo || '';
+    const combinedFallback = [pitchbookText, fetchedPublic].map((p) => (p || '').trim()).filter(Boolean).join('\n\n');
+    const combinedPublic = (publicBlock.combined || publicBlock.combined_used_for_baseline || metadata.publicInfoUsed || combinedFallback || '').trim();
+    const url = metadata.companyUrl || data?.companyUrl || '';
+
+    setCompanyUrl(url);
+    setPitchbookInfo(pitchbookText);
+    setPublicInfo(fetchedPublic);
+    setBaselineSource(combinedPublic);
+
+    const importedFounderInput =
+      normalizeBaseline(statements.founder_input_page2) || INITIAL_STATEMENT;
+    const llmBaseline = normalizeBaseline(
+      statements.llm_generated_page1
+    );
+    const founderBaseline = normalizeBaseline(
+      statements.interviewer_review_page3
+    );
+
+    setHasFetchedPublicInfo(Boolean(fetchedPublic || pitchbookText || combinedPublic || llmBaseline || founderBaseline));
+    setBaselineLLM(llmBaseline);
+    setBaselineGenerated(llmBaseline);
+    setBaselineStatement(founderBaseline || llmBaseline || importedFounderInput);
+    setIsStatementOpen(true);
+
+    setFounderInput(importedFounderInput);
+
+    const part1 = normalizeStatementResult(data?.part1_discovery || data?.part1Result, 'import');
+    setPart1Result(part1);
+
+    const rows = normalizeComparisonRows(
+      statements?.interviewer_final_page5?.components || []
+    );
+    setComparisonRows(rows);
+
+    const supportMap = { ...buildSupportState(rows) };
+    if (Array.isArray(data?.omissions_hallucinations)) {
+      data.omissions_hallucinations.forEach((entry: any) => {
+        const targetComponent = entry?.component;
+        const targetRowId = entry?.rowId || entry?.id;
+        const rowMatch = (targetRowId && supportMap[targetRowId])
+          ? targetRowId
+          : rows.find((r) => r.id === targetRowId || (targetComponent && r.component === targetComponent))?.id;
+        if (!rowMatch) return;
+        supportMap[rowMatch] = {
+          omissions: normalizeSupportItems(entry.omissions, 'Omission'),
+          hallucinations: normalizeSupportItems(entry.hallucinations, 'Hallucination'),
+          loading: false,
+          statusMessage: entry.statusMessage || ''
+        };
+      });
+    } else if (data?.supportByRow && typeof data.supportByRow === 'object') {
+      Object.entries(data.supportByRow as Record<string, any>).forEach(([rowId, state]) => {
+        supportMap[rowId] = {
+          omissions: normalizeSupportItems(state.omissions, 'Omission'),
+          hallucinations: normalizeSupportItems(state.hallucinations, 'Hallucination'),
+          loading: false,
+          statusMessage: state?.statusMessage || ''
+        };
+      });
+    }
+    setSupportByRow(supportMap);
+
+    const transcriptBlock = data?.transcript || {};
+    const importedSplit = (transcriptBlock.part1 || transcriptBlock.part2 || transcriptBlock.splitReason)
+      ? {
+          part1: transcriptBlock.part1 || '',
+          part2: transcriptBlock.part2 || '',
+          reasoning: transcriptBlock.splitReason || ''
+        }
+      : null;
+    setSplitData(importedSplit);
+
+    const fullTranscript = transcriptBlock.full || [transcriptBlock.part1, transcriptBlock.part2].filter(Boolean).join('\n\n');
+    setTranscript(fullTranscript || '');
+    setDiarizedPreview(fullTranscript || '');
+    setTranscriptionStatus('');
+    setIsTranscribingAudio(false);
+
+    const notes = statements?.interviewer_final_page5?.notes || '';
+    setPart2Notes(notes);
+
+    const consentBlock = data?.consent || {};
+    const importedRecordConsent = Boolean(
+      consentBlock.founderRecordConsent ?? consentBlock.recordingConsent
+    );
+    const importedInternational = Boolean(
+      consentBlock.internationalFounder ?? consentBlock.isInternationalFounder
+    );
+    const importedDataConsent = Boolean(
+      consentBlock.founderDataConsent ?? consentBlock.dataConsent
+    );
+    setFounderRecordConsent(importedRecordConsent);
+    setInternationalFounder(importedInternational);
+    setFounderDataConsent(importedInternational ? importedDataConsent : false);
+    setIsConsentOpen(false);
+
+    setComponentEvidence(null);
+    setShowGuideGlow(false);
+    setIsGuideOpen(false);
+    setSpeakerLabels([]);
+    setSpeakerMapping({});
+    setShowSpeakerModal(false);
+
+    setStatus(AppStatus.SUCCESS);
+    setErrorMsg('');
+
+    if (rows.length) {
+      setStep(WizardStep.PART2_COMPARISON);
+    } else if (importedSplit) {
+      setStep(WizardStep.TRANSCRIPT_UPLOAD);
+    } else if (founderBaseline || llmBaseline) {
+      setStep(WizardStep.BASELINE_REVIEW);
+    } else if (importedFounderInput && (importedFounderInput.SOLUTION || importedFounderInput.CUSTOMER_SEGMENT)) {
+      setStep(WizardStep.FOUNDER_INPUT);
+    } else {
+      setStep(WizardStep.PUBLIC_INFO);
+    }
+  };
+
+  const handleImportJsonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      hydrateFromExport(parsed);
+    } catch (err: any) {
+      setErrorMsg(`Failed to load JSON: ${err?.message || err.toString()}`);
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const triggerImportJson = () => {
+    importFileInputRef.current?.click();
   };
 
 
@@ -541,7 +803,7 @@ function App() {
     { id: WizardStep.FOUNDER_INPUT, label: 'Founder Input' },
     { id: WizardStep.BASELINE_REVIEW, label: 'Review Baseline' },
     { id: WizardStep.TRANSCRIPT_UPLOAD, label: 'Post-interview' },
-    { id: WizardStep.PART2_COMPARISON, label: 'Feedback (P2)' }
+    { id: WizardStep.PART2_COMPARISON, label: 'Feedback' }
   ];
 
   const stepAvailability = (id: WizardStep) => {
@@ -746,13 +1008,28 @@ function App() {
              <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">BETA</span>
              <h2 className="text-sm font-semibold text-gray-600">Step {currentStepIndex + 1} of {totalSteps}</h2>
            </div>
-           <button onClick={handleReset} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wide">
-             Clear All & Restart
-           </button>
+           <div className="flex items-center gap-2">
+             <button
+               onClick={triggerImportJson}
+               className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
+             >
+               Load JSON
+             </button>
+             <button onClick={handleReset} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wide">
+               Clear All & Restart
+             </button>
+           </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 pb-32">
+        <input
+          ref={importFileInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={handleImportJsonFile}
+        />
         {renderGuideModal()}
         <SpeakerModal
           open={showSpeakerModal}
@@ -762,6 +1039,16 @@ function App() {
           onClose={() => setShowSpeakerModal(false)}
           onApply={handleSpeakerApply}
           onMappingChange={handleSpeakerMappingChange}
+        />
+        <ConsentModal
+          open={isConsentOpen}
+          onClose={() => setIsConsentOpen(false)}
+          founderRecordConsent={founderRecordConsent}
+          onToggleRecordConsent={setFounderRecordConsent}
+          internationalFounder={internationalFounder}
+          onToggleInternationalFounder={handleInternationalConsentChange}
+          founderDataConsent={founderDataConsent}
+          onToggleDataConsent={setFounderDataConsent}
         />
         <StepIndicator
           steps={visibleSteps}
@@ -908,10 +1195,23 @@ function App() {
         {/* STEP 2: FOUNDER INPUT (STRUCTURED) */}
         {step === WizardStep.FOUNDER_INPUT && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
-          <h2 className="text-2xl font-bold mb-2">2. Founder's Perspective (!!RECORD ZOOM TO COMPUTER!!)</h2>
-          <p className="text-gray-500 mb-6 text-sm">
-            What does the founder <em>think</em> the problem is?
-          </p>
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">2. Founder's Perspective (!!RECORD ZOOM TO COMPUTER!!)</h2>
+              <p className="text-gray-500 text-sm">
+                What does the founder <em>think</em> the problem is?
+              </p>
+            </div>
+            <div className="flex flex-col items-start md:items-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsConsentOpen(true)}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-emerald-700"
+              >
+                Consent
+              </button>
+            </div>
+          </div>
 
           <div className="space-y-8 mb-8">
             {/* Introduction */}
@@ -1283,7 +1583,8 @@ function App() {
             onChangeSupportItem={updateSupportItem}
             onConfirmSupportCheck={handleSupportConfirm}
             onBack={() => setStep(WizardStep.TRANSCRIPT_UPLOAD)}
-            onExport={handleExport}
+            onExportJson={handleExportJson}
+            onImportJson={triggerImportJson}
           />
         )}
 
