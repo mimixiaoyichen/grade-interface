@@ -798,6 +798,6 @@ Transitory wording between part 1 & part 2:
 
 export type LocaleKey = keyof typeof translations;
 export type Translation = (typeof translations)[LocaleKey];
-export const TranslationContext = React.createContext<Translation>(translations.zh);
+export const TranslationContext = React.createContext<Translation>(translations.en);
 export const useT = () => React.useContext(TranslationContext);
-export const getTranslation = (locale: LocaleKey): Translation => translations[locale] || translations.zh;
+export const getTranslation = (locale: LocaleKey): Translation => translations[locale] || translations.en;

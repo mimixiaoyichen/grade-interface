@@ -17,7 +17,7 @@ const SpeakerModal: React.FC<SpeakerModalProps> = ({ open, labels, mapping, samp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full">
+      <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
         <h3 className="text-lg font-bold text-gray-800 mb-2">{t.title}</h3>
         <p className="text-sm text-gray-600 mb-4">{t.description}</p>
 
@@ -35,7 +35,7 @@ const SpeakerModal: React.FC<SpeakerModalProps> = ({ open, labels, mapping, samp
           ))}
         </div>
 
-        <div className="bg-gray-50 border border-gray-200 rounded p-3 text-xs text-gray-700 whitespace-pre-wrap mb-4">
+        <div className="bg-gray-50 border border-gray-200 rounded p-3 text-xs text-gray-700 whitespace-pre-wrap mb-4 max-h-40 overflow-y-auto">
           <div className="text-[10px] uppercase text-gray-500 font-semibold mb-1">{t.sampleTitle}</div>
           {sampleText || t.sampleEmpty}
         </div>

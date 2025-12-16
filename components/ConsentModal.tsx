@@ -104,46 +104,49 @@ const ConsentModal: React.FC<ConsentModalProps> = ({
               <span>{t.international.label}</span>
             </label>
 
-            <div className="space-y-2">
-              <h4 className="text-base font-bold text-gray-900">{t.international.addendumTitle}</h4>
-              {t.international.paragraphs.map((p, idx) => (
-                <p key={`intl-p-${idx}`}>{p}</p>
-              ))}
-            </div>
+            {internationalFounder ? (
+              <>
+                <div className="space-y-2">
+                  <h4 className="text-base font-bold text-gray-900">{t.international.addendumTitle}</h4>
+                  {t.international.paragraphs.map((p, idx) => (
+                    <p key={`intl-p-${idx}`}>{p}</p>
+                  ))}
+                </div>
 
-            <ul className="list-disc pl-5 space-y-1">
-              {t.international.bullets.map((item, idx) => (
-                <li key={`intl-b-${idx}`}>{item}</li>
-              ))}
-            </ul>
-            <p>{t.international.extraUse}</p>
-            <ul className="list-disc pl-5 space-y-1">
-              {t.international.extraBullets.map((item, idx) => (
-                <li key={`intl-extra-${idx}`}>{item}</li>
-              ))}
-            </ul>
-            <p>{t.international.retention}</p>
-            <p>{t.international.anonymize}</p>
-            <p>{t.international.rightsIntro}</p>
-            <p>{t.international.gdpr.intro}</p>
-            <ul className="list-disc pl-5 space-y-1">
-              {t.international.gdpr.bullets.map((item, idx) => (
-                <li key={`intl-gdpr-${idx}`}>{item}</li>
-              ))}
-            </ul>
-            <p>{t.international.gdpr.transfer}</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {t.international.bullets.map((item, idx) => (
+                    <li key={`intl-b-${idx}`}>{item}</li>
+                  ))}
+                </ul>
+                <p>{t.international.extraUse}</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {t.international.extraBullets.map((item, idx) => (
+                    <li key={`intl-extra-${idx}`}>{item}</li>
+                  ))}
+                </ul>
+                <p>{t.international.retention}</p>
+                <p>{t.international.anonymize}</p>
+                <p>{t.international.rightsIntro}</p>
+                <p>{t.international.gdpr.intro}</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {t.international.gdpr.bullets.map((item, idx) => (
+                    <li key={`intl-gdpr-${idx}`}>{item}</li>
+                  ))}
+                </ul>
+                <p>{t.international.gdpr.transfer}</p>
 
-            <label className="flex items-start gap-3 text-sm text-gray-800">
-              <input
-                type="checkbox"
-                className="mt-1 w-4 h-4 border-gray-400 rounded"
-                checked={founderDataConsent}
-                disabled={!internationalFounder}
-                onChange={(e) => onToggleDataConsent(e.target.checked)}
-              />
-              <span>{t.international.dataConsent}</span>
-            </label>
-            {!internationalFounder && (
+                <label className="flex items-start gap-3 text-sm text-gray-800">
+                  <input
+                    type="checkbox"
+                    className="mt-1 w-4 h-4 border-gray-400 rounded"
+                    checked={founderDataConsent}
+                    disabled={!internationalFounder}
+                    onChange={(e) => onToggleDataConsent(e.target.checked)}
+                  />
+                  <span>{t.international.dataConsent}</span>
+                </label>
+              </>
+            ) : (
               <p className="text-xs text-gray-500">{t.international.dataConsentHint}</p>
             )}
           </div>

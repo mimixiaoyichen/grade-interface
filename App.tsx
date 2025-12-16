@@ -111,7 +111,7 @@ function App() {
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
-  const [locale, setLocale] = useState<LocaleKey>('zh');
+  const [locale, setLocale] = useState<LocaleKey>('en');
   const t = getTranslation(locale);
   const { common, errors, statuses } = t;
 
