@@ -1,6 +1,7 @@
 import React from 'react';
 import { ComparisonRow, ComponentEvidence, SupportRowState } from '../types';
 import ComparisonTable from './ComparisonTable';
+import { useT } from '../utils/strings';
 
 interface Part2ComparisonProps {
   comparisonRows: ComparisonRow[];
@@ -29,14 +30,15 @@ const Part2Comparison: React.FC<Part2ComparisonProps> = ({
   onExportJson,
   onImportJson
 }) => {
+  const t = useT().part2;
   return (
     <div className="animate-fade-in-up pb-20">
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
+          <button onClick={onBack} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.back}</button>
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Part 2 Results: Feedback & Comparison</h2>
-            <p className="text-gray-500">Comparing Baseline (Public Info) vs. Founder's Transcript Feedback.</p>
+            <h2 className="text-2xl font-bold text-gray-800">{t.title}</h2>
+            <p className="text-gray-500">{t.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -45,11 +47,11 @@ const Part2Comparison: React.FC<Part2ComparisonProps> = ({
               onClick={onImportJson}
               className="border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm hover:bg-gray-50 font-semibold"
             >
-              Load JSON
+              {t.loadJson}
             </button>
           )}
           <button onClick={onExportJson} className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-black font-bold">
-            Download JSON
+            {t.downloadJson}
           </button>
         </div>
       </div>

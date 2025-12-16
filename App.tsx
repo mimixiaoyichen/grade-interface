@@ -27,12 +27,13 @@ import {
   SupportCheckItem,
   SupportRowState
 } from './types';
-import { GUIDE_SECTIONS } from './utils/guideContent';
+import { getGuideSections } from './utils/guideContent';
 import type { GuideSection } from './utils/guideContent';
 import StepIndicator from './components/StepIndicator';
 import SpeakerModal from './components/SpeakerModal';
 import Part2Comparison from './components/Part2Comparison';
 import ConsentModal from './components/ConsentModal';
+import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
 
 const getComponentText = (
   source: BaselineStatement | null | undefined,
@@ -76,10 +77,13 @@ const stripIndent = (text: string) =>
     .replace(/\n[ \t]+/g, '\n')
     .trim();
 
-export const ScriptDropdown = ({ title = "View Script", children }) => (
-  <details className="w-full group">
-    <summary className="list-none cursor-pointer select-none text-xs text-gray-500 flex items-center gap-2 justify-end">
-      <span className="font-medium text-sm">{title}</span>
+export const ScriptDropdown = ({ title, children }) => {
+  const { common } = useT();
+  const resolvedTitle = title || common.viewScript;
+  return (
+    <details className="w-full group">
+      <summary className="list-none cursor-pointer select-none text-xs text-gray-500 flex items-center gap-2 justify-end">
+        <span className="font-medium text-sm">{resolvedTitle}</span>
       <svg
         className="w-4 h-4 transform transition-transform duration-150 group-open:rotate-180"
         xmlns="http://www.w3.org/2000/svg"
@@ -95,17 +99,21 @@ export const ScriptDropdown = ({ title = "View Script", children }) => (
       </svg>
     </summary>
 
-    <div className="w-full mt-3 p-4 bg-gray-50 rounded border border-gray-100 text-sm text-gray-600">
-      {children}
-    </div>
-  </details>
-);
+      <div className="w-full mt-3 p-4 bg-gray-50 rounded border border-gray-100 text-sm text-gray-600">
+        {children}
+      </div>
+    </details>
+  );
+};
 
 function App() {
   const [step, setStep] = useState<WizardStep>(WizardStep.PUBLIC_INFO);
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [locale, setLocale] = useState<LocaleKey>('zh');
+  const t = getTranslation(locale);
+  const { common, errors, statuses } = t;
 
   // --- State Data ---
   
@@ -237,18 +245,18 @@ function App() {
     resetTranscriptFlow();
     setErrorMsg('');
     const sizeLabel = (file as any)?.size ? ` (${formatBytes((file as any).size)})` : '';
-    setTranscriptionStatus(`Uploading audio${sizeLabel}...`);
+    setTranscriptionStatus(`${statuses.uploadingAudio}${sizeLabel}...`);
     setIsTranscribingAudio(true);
     try {
       const baseFile = file instanceof File
         ? file
         : new File([file], 'recording.webm', { type: (file as any)?.type || 'audio/webm' });
-      setTranscriptionStatus('Processing with ElevenLabs (diarization)...');
+      setTranscriptionStatus(statuses.processingDiarization);
       const result = await transcribeAudioWithDiarization(baseFile);
       const diarizedText = (result.diarizedText || result.text || '').trim();
       setTranscript(diarizedText);
       setDiarizedPreview(diarizedText);
-      setTranscriptionStatus('Transcription complete. Review or edit below before splitting.');
+      setTranscriptionStatus(statuses.transcriptionDone);
 
       // Prompt speaker mapping if diarization labels are present
       const labelsFromText = extractSpeakerLabels(diarizedText);
@@ -268,7 +276,7 @@ function App() {
         setShowSpeakerModal(true);
       }
     } catch (e: any) {
-      setTranscriptionStatus(`Transcription error: ${e.message || e}`);
+      setTranscriptionStatus(`${statuses.transcriptionErrorPrefix} ${e.message || e}`);
     } finally {
       setIsTranscribingAudio(false);
     }
@@ -284,7 +292,7 @@ function App() {
   };
 
   const handleReset = () => {
-    if (window.confirm("Are you sure you want to clear all data and start over?")) {
+    if (window.confirm(errors.resetConfirm)) {
       setStep(WizardStep.PUBLIC_INFO);
       setStatus(AppStatus.IDLE);
       setPublicInfo('');
@@ -319,7 +327,7 @@ function App() {
 
   // Step 1: URL Fetch
   const handleUrlFetch = async () => {
-    if (!companyUrl.trim()) return setErrorMsg("Please enter a valid URL.");
+    if (!companyUrl.trim()) return setErrorMsg(errors.invalidUrl);
     setStatus(AppStatus.PROCESSING);
     setErrorMsg('');
     try {
@@ -346,8 +354,8 @@ function App() {
   const generateBaseline = async () => {
     const combinedPublicInfo = getCombinedPublicInfo();
     const trimmedPublicInfo = combinedPublicInfo.trim();
-    if (!trimmedPublicInfo) return setErrorMsg("Public information is required.");
-    if (!hasFetchedPublicInfo) return setErrorMsg("Please fetch public information first.");
+    if (!trimmedPublicInfo) return setErrorMsg(errors.publicInfoRequired);
+    if (!hasFetchedPublicInfo) return setErrorMsg(errors.fetchPublicInfoFirst);
 
     // If we already generated from this exact public info, just continue without re-calling the model
     if (baselineStatement && baselineSource === trimmedPublicInfo) {
@@ -395,7 +403,7 @@ function App() {
   const submitFounderInput = () => {
     // Basic validation
     if (!founderInput.SOLUTION.trim() && !founderInput.CUSTOMER_SEGMENT.trim()) {
-       return setErrorMsg("Please provide at least a Solution and Customer Segment.");
+       return setErrorMsg(errors.founderInputMissing);
     }
     setErrorMsg('');
     setStep(WizardStep.BASELINE_REVIEW);
@@ -409,7 +417,7 @@ function App() {
 
   // Step 4 Split Logic
   const startSplit = async () => {
-    if (!transcript.trim()) return setErrorMsg("Transcript required.");
+    if (!transcript.trim()) return setErrorMsg(errors.transcriptRequired);
     setStatus(AppStatus.PROCESSING);
     try {
       const res = await splitTranscript(transcript);
@@ -429,7 +437,7 @@ function App() {
   // Step 4 Confirm Split -> Analyze Part 1
   const handleConfirmSplitAndAnalyze = async (p1: string, p2: string) => {
     if (!baselineStatement) {
-      return setErrorMsg("Baseline statement is required before analyzing the transcript.");
+      return setErrorMsg(errors.baselineRequired);
     }
 
     const isTextUnchanged = splitData && splitData.part1 === p1 && splitData.part2 === p2;
@@ -438,7 +446,7 @@ function App() {
       return;
     }
 
-    setSplitData(prev => prev ? { ...prev, part1: p1, part2: p2 } : { part1: p1, part2: p2, reasoning: 'User-provided split' });
+    setSplitData(prev => prev ? { ...prev, part1: p1, part2: p2 } : { part1: p1, part2: p2, reasoning: t.splitVerifier.userProvidedReasoning });
     setComparisonRows([]);
     setComponentEvidence(null);
     setBaselineGenerated(null);
@@ -470,7 +478,7 @@ function App() {
         throw analysisResult.reason;
       }
       if (comparisonResult.status !== 'fulfilled') {
-        throw comparisonResult.reason || new Error("Comparison generation failed.");
+        throw comparisonResult.reason || new Error(errors.comparisonFailed || 'Comparison generation failed.');
       }
 
       const mapToState = (raw: AIAnalysisResponse, prefix: string): StatementResult => ({
@@ -507,7 +515,7 @@ function App() {
         transcriptModification: (baselineStatement)?.SOLUTION || '',
         reviewerEdit: (baselineStatement)?.SOLUTION || '',
         type: 'Confirmation',
-        transcriptEvidence: 'Solution evidence not provided (baseline only).',
+        transcriptEvidence: t.comparison.support.solutionEvidenceFallback,
         publicSupport: '',
         publicEvidence: '',
         publicEvidenceContext: '',
@@ -785,7 +793,7 @@ function App() {
       const parsed = JSON.parse(text);
       hydrateFromExport(parsed);
     } catch (err: any) {
-      setErrorMsg(`Failed to load JSON: ${err?.message || err.toString()}`);
+      setErrorMsg(`${errors.loadJsonFailed}${err?.message || err.toString()}`);
     } finally {
       if (e.target) e.target.value = '';
     }
@@ -799,11 +807,11 @@ function App() {
   // --- Render Helpers ---
 
   const visibleSteps = [
-    { id: WizardStep.PUBLIC_INFO, label: 'Public Info' },
-    { id: WizardStep.FOUNDER_INPUT, label: 'Founder Input' },
-    { id: WizardStep.BASELINE_REVIEW, label: 'Review Baseline' },
-    { id: WizardStep.TRANSCRIPT_UPLOAD, label: 'Post-interview' },
-    { id: WizardStep.PART2_COMPARISON, label: 'Feedback' }
+    { id: WizardStep.PUBLIC_INFO, label: t.steps.publicInfo },
+    { id: WizardStep.FOUNDER_INPUT, label: t.steps.founderInput },
+    { id: WizardStep.BASELINE_REVIEW, label: t.steps.baselineReview },
+    { id: WizardStep.TRANSCRIPT_UPLOAD, label: t.steps.transcriptUpload },
+    { id: WizardStep.PART2_COMPARISON, label: t.steps.part2Comparison }
   ];
 
   const stepAvailability = (id: WizardStep) => {
@@ -885,13 +893,13 @@ function App() {
     if (!row) return;
     const items = [...row.omissions, ...row.hallucinations].filter((i) => i.text.trim().length > 0);
     if (!combinedInfo.trim()) {
-      setErrorMsg("Public information is required before checking public support.");
+      setErrorMsg(errors.publicSupportInfoMissing);
       return;
     }
     // If no items, simply clear any previous error and exit without blocking
     if (!items.length) {
       setErrorMsg('');
-      setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: false, statusMessage: 'No omissions or hallucinations provided to check.' } }));
+      setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: false, statusMessage: t.comparison.labels.statusMessage } }));
       return;
     }
     setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: true } }));
@@ -918,13 +926,15 @@ function App() {
         };
       });
     } catch (e: any) {
-      setErrorMsg(e.message || 'Public support check failed.');
-      setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: false, statusMessage: 'Public support check failed.' } }));
+      setErrorMsg(e.message || errors.supportCheckFailed);
+      setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: false, statusMessage: t.comparison.support.publicSupportFailed } }));
     }
   };
 
   const renderGuideModal = () => {
     if (!isGuideOpen) return null;
+    const guideText = t.guide;
+    const guideSections = getGuideSections(locale);
 
     const renderSection = (section: GuideSection, idx: number) => (
       <div key={section.title + idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -954,21 +964,21 @@ function App() {
           <button
             onClick={() => setIsGuideOpen(false)}
             className="absolute right-3 top-3 text-gray-400 hover:text-gray-700"
-            aria-label="Close guide"
+            aria-label={guideText.close}
           >
             ×
           </button>
-          <h2 className="text-2xl font-bold mb-3 text-gray-900">Interviewer Training Guidance</h2>
-          <p className="text-sm text-gray-600 mb-4">Verbatim content, grouped for quick scanning.</p>
+          <h2 className="text-2xl font-bold mb-3 text-gray-900">{guideText.title}</h2>
+          <p className="text-sm text-gray-600 mb-4">{guideText.description}</p>
           <div className="text-sm text-gray-800 max-h-[65vh] overflow-y-auto pr-2 space-y-3">
-            {GUIDE_SECTIONS.map(renderSection)}
+            {guideSections.map(renderSection)}
           </div>
           <div className="mt-6 flex justify-end">
             <button
               onClick={() => setIsGuideOpen(false)}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
             >
-              Close
+              {guideText.close}
             </button>
           </div>
         </div>
@@ -977,14 +987,21 @@ function App() {
   };
 
   return (
+    <TranslationContext.Provider value={t}>
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
       <div className="bg-white p-4 shadow-sm border-b border-gray-200 sticky top-0 z-20">
          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-             <h1 className="text-xl font-bold text-gray-800">Founder Problem Analyst</h1>
+             <h1 className="text-xl font-bold text-gray-800">{common.appTitle}</h1>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
+             <button
+               onClick={() => setLocale((prev) => prev === 'zh' ? 'en' : 'zh')}
+               className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
+             >
+               {locale === 'zh' ? common.languageEn : common.languageZh}
+             </button>
              <button
                onClick={() => {
                  setIsGuideOpen(true);
@@ -993,7 +1010,7 @@ function App() {
                }}
                className={`text-sm font-semibold text-blue-600 hover:text-blue-800 underline relative ${showGuideGlow ? 'animate-pulse' : ''}`}
              >
-               Guide
+               {common.guide}
                {showGuideGlow && (
                  <span className="absolute inset-0 rounded-full shadow-[0_0_0_6px_rgba(59,130,246,0.25)] pointer-events-none"></span>
                )}
@@ -1005,18 +1022,18 @@ function App() {
       <header className="bg-white shadow-sm border-b border-gray-200 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
            <div className="flex items-center gap-2">
-             <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">BETA</span>
-             <h2 className="text-sm font-semibold text-gray-600">Step {currentStepIndex + 1} of {totalSteps}</h2>
+             <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">{common.beta}</span>
+             <h2 className="text-sm font-semibold text-gray-600">{`${common.stepLabel} ${currentStepIndex + 1} / ${totalSteps}`}</h2>
            </div>
            <div className="flex items-center gap-2">
              <button
                onClick={triggerImportJson}
                className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
              >
-               Load JSON
+               {common.loadJson}
              </button>
              <button onClick={handleReset} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wide">
-               Clear All & Restart
+               {common.clearAll}
              </button>
            </div>
         </div>
@@ -1070,19 +1087,19 @@ function App() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
             <div className="flex justify-between items-start gap-2">
               <div>
-                <h2 className="text-2xl font-bold mb-1">1. Public Information</h2>
+                <h2 className="text-2xl font-bold mb-1">{t.publicInfo.title}</h2>
                 </div>
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-bold text-gray-700 mb-2">Pitchbook Information</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">{t.publicInfo.pitchbookLabel}</label>
               <textarea
                 className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y text-sm mb-2 font-mono bg-gray-50"
-                placeholder="Copy and paste pitchbook information if available..."
+                placeholder={t.publicInfo.pitchbookPlaceholder}
                 value={pitchbookInfo}
                 onChange={(e) => setPitchbookInfo(e.target.value)}
               />
-              <p className="text-xs text-gray-500">This will be combined with fetched public info when generating the baseline.</p>
+              <p className="text-xs text-gray-500">{t.publicInfo.pitchbookHint}</p>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
@@ -1090,13 +1107,13 @@ function App() {
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-5">
                  <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
-                   Option A: Fetch from URL
+                   {t.publicInfo.optionA.title}
                  </h3>
-                 <p className="text-xs text-blue-800 mb-4">We will use Google Search to find and summarize public info about this company. We also attempt to fetch the raw homepage HTML.</p>
+                 <p className="text-xs text-blue-800 mb-4">{t.publicInfo.optionA.description}</p>
                  <div className="flex gap-2">
                    <input 
                     type="text" 
-                    placeholder="https://example.com"
+                    placeholder={t.publicInfo.optionA.placeholder}
                     value={companyUrl}
                     onChange={(e) => setCompanyUrl(e.target.value)}
                     className="flex-1 border border-blue-200 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
@@ -1106,26 +1123,26 @@ function App() {
                     disabled={status === AppStatus.PROCESSING}
                     className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
                    >
-                     Fetch
+                     {t.publicInfo.optionA.fetch}
                    </button>
                  </div>
               </div>
 
               {/* Option B: File */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
-                 <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    Option B: Upload File
+                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    {t.publicInfo.optionB.title}
                  </h3>
-                 <p className="text-xs text-gray-600 mb-4">Upload a pitch deck text or website copy directly.</p>
+                 <p className="text-xs text-gray-600 mb-4">{t.publicInfo.optionB.description}</p>
                  <input type="file" onChange={(e) => handleFileUpload(e, setPublicInfo)} className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300"/>
               </div>
             </div>
 
-            <label className="block text-sm font-bold text-gray-700 mb-2">Public Information Content</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">{t.publicInfo.contentLabel}</label>
             <textarea
               className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y text-sm mb-6 font-mono bg-gray-50"
-              placeholder="Content will appear here after fetch or upload..."
+              placeholder={t.publicInfo.contentPlaceholder}
               value={publicInfo}
               onChange={(e) => setPublicInfo(e.target.value)}
             />
@@ -1137,7 +1154,7 @@ function App() {
                     onClick={() => setStep(WizardStep.FOUNDER_INPUT)}
                     className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-4 py-2 rounded border border-gray-200"
                   >
-                    Continue to Founder Input →
+                    {t.publicInfo.buttons.continue}
                   </button>
                 )}
                 <button 
@@ -1146,35 +1163,35 @@ function App() {
                   className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50"
                 >
                   {status === AppStatus.PROCESSING 
-                    ? 'Analyzing Public Info...' 
+                    ? t.publicInfo.buttons.analyze
                     : isBaselineCurrent 
-                      ? 'Regenerate Baseline' 
-                      : 'Generate Baseline →'}
+                      ? t.publicInfo.buttons.regenerate
+                      : t.publicInfo.buttons.generate}
                 </button>
               </div>
 
               {baselineStatement && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-lg font-bold text-gray-800 mb-2">LLM-generated Statement (Preview)</h3>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">{t.publicInfo.preview.title}</h3>
                   <div className="space-y-4 text-sm text-gray-800">
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Solution</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t.publicInfo.preview.solution}</p>
                       <p className="font-semibold text-gray-900">{baselineStatement.SOLUTION || '—'}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Customer</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t.publicInfo.preview.customer}</p>
                       <p className="font-semibold text-gray-900">{baselineStatement.CUSTOMER_SEGMENT || '—'}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Context</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t.publicInfo.preview.context}</p>
                       <p className="font-semibold text-gray-900">{baselineStatement.LIFE_BUSINESS_CONTEXT || '—'}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Goals</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t.publicInfo.preview.goals}</p>
                       <p className="font-semibold text-gray-900">{baselineStatement.JOB_TO_BE_DONE || '—'}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Barriers</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t.publicInfo.preview.barriers}</p>
                       {baselineStatement.SPECIFIC_BARRIERS?.length ? (
                         <ul className="list-disc pl-5 space-y-1">
                           {baselineStatement.SPECIFIC_BARRIERS.slice(0, 4).map((barrier, idx) => (
@@ -1182,7 +1199,7 @@ function App() {
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-gray-500">No barriers available.</p>
+                        <p className="text-gray-500">{t.publicInfo.preview.noBarriers}</p>
                       )}
                     </div>
                   </div>
@@ -1197,10 +1214,8 @@ function App() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
             <div>
-              <h2 className="text-2xl font-bold mb-2">2. Founder's Perspective (!!RECORD ZOOM TO COMPUTER!!)</h2>
-              <p className="text-gray-500 text-sm">
-                What does the founder <em>think</em> the problem is?
-              </p>
+              <h2 className="text-2xl font-bold mb-2">{t.founder.title}</h2>
+              <p className="text-gray-500 text-sm">{t.founder.subtitle}</p>
             </div>
             <div className="flex flex-col items-start md:items-end gap-2">
               <button
@@ -1208,7 +1223,7 @@ function App() {
                 onClick={() => setIsConsentOpen(true)}
                 className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-emerald-700"
               >
-                Consent
+                {t.founder.consent}
               </button>
             </div>
           </div>
@@ -1218,39 +1233,12 @@ function App() {
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Introduction
+                  {t.founder.labels.introduction}
                 </label>
 
-                <ScriptDropdown title="View Script">
+                <ScriptDropdown>
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-            {stripIndent(`
-            Overview:
-            “Hi [Name], thank you for joining today. I’m [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We’re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. With your permission, I’d like to record the conversation so that we can capture your responses accurately. Is that okay?”  
-            
-            If yes, begin recording. If no, interviewer is expected to take detailed notes.  
-
-            Then set expectations:
-            “I’ll ask a series of open‑ended questions. There are no right or wrong answers—we want to understand your perspective in your own words. This will take about 20 minutes.”  
-
-            Briefly describe the problem statement framework using the following scripted introduction (read verbatim):  
-
-            “Before we dive into the specific questions, I want to quickly explain the structure we’ll use. We follow a simple framework to construct a problem statement of your company. Our goal is to understand the problem your company solves from the customer’s point of view.  
-
-            We’ll walk through five elements:  
-
-            1. Solution means what you’ve built.  
-
-            2. Customer means who is your target customer.  
-
-            3. Customers’ Aspiration means what your customers are trying to accomplish.  
-
-            4. When does the Problem occur means the specific situation or moment when your customers experience the problem.   
-
-            5. Barriers means what prevents your customers from reaching their goals without your help.  
-
-            We will only focus on your perspective as the founder. However, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
- 
-            `)}
+            {stripIndent(t.founder.scripts.introduction)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -1260,17 +1248,12 @@ function App() {
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Solution
+                  {t.founder.labels.solution}
                 </label>
 
-                <ScriptDropdown title="View Script">
+                <ScriptDropdown>
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {stripIndent(`
-      Lead Question (read verbatim):
-      “Let’s begin with what you’ve built. How would you describe your product or solution? Please describe it  based on information that is publicly available on your startup.”   
-      
-      Smooth Transition: “Thank you—that helps set the stage. Now let’s move on to the next variable. I’d like to understand who your customers are.”
- `)}
+      {stripIndent(t.founder.scripts.solution)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -1278,7 +1261,7 @@ function App() {
               <textarea
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
                 rows={2}
-                placeholder="e.g. AI-powered diagnostic tool for radiologists"
+                placeholder={t.founder.placeholders.solution}
                 value={founderInput.SOLUTION}
                 onChange={(e) => updateFounderInput('SOLUTION', e.target.value)}
               />
@@ -1288,22 +1271,12 @@ function App() {
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Customer Segment
+                  {t.founder.labels.customer}
                 </label>
 
-                <ScriptDropdown title="View Script">
+                <ScriptDropdown>
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {stripIndent(`
-      Lead Question (verbatim): “Tell me about the people or organizations that face the problem you are trying to solve. Who are they?”  
-
-      Probing (if needed):
-      - “Could you describe them by role or situation rather than demographics?”
-      - “Who is your primary customer today versus aspirational customers?”
-      - “What do these customers have in common?”  
-      
-      Reflective statement before transition: “So you’re saying your core customer is ___. Did I summarize that accurately?  
-      [founder confirms OR offers more revisions] 
-      Now let’s move on to the next variable.”  `)}
+      {stripIndent(t.founder.scripts.customer)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -1311,7 +1284,7 @@ function App() {
               <textarea
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
                 rows={2}
-                placeholder="e.g. Radiologists in high-volume trauma centers"
+                placeholder={t.founder.placeholders.customer}
                 value={founderInput.CUSTOMER_SEGMENT}
                 onChange={(e) => updateFounderInput('CUSTOMER_SEGMENT', e.target.value)}
               />
@@ -1321,21 +1294,12 @@ function App() {
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Context
+                  {t.founder.labels.context}
                 </label>
 
-                <ScriptDropdown title="View Script">
+                <ScriptDropdown>
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {stripIndent(`
-        Lead Question (verbatim): “When does this problem occur for your customers? Can you describe the specific situation or moment when they face this challenge?”  
-        
-        Probing:  
-        - “Is there a trigger event when this becomes urgent?”  
-        - “Can you walk me through a recent example?”  
-        
-        Reflective statement before transition:  “So the problem typically arises when ___. Did I capture that accurately? 
-        [founder confirms OR offers more revisions] 
-        Now let’s move on to the next variable.”`)}
+      {stripIndent(t.founder.scripts.context)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -1343,7 +1307,7 @@ function App() {
               <textarea
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
                 rows={2}
-                placeholder="e.g. When reviewing overnight CT scans with limited staff"
+                placeholder={t.founder.placeholders.context}
                 value={founderInput.LIFE_BUSINESS_CONTEXT}
                 onChange={(e) => updateFounderInput('LIFE_BUSINESS_CONTEXT', e.target.value)}
               />
@@ -1353,22 +1317,12 @@ function App() {
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Goal
+                  {t.founder.labels.goal}
                 </label>
 
-                <ScriptDropdown title="View Script">
+                <ScriptDropdown>
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {stripIndent(`Lead Question (verbatim): “What are your customers ultimately trying to achieve when they come to you? To be clear, I’m asking about the progress or goals they’re seeking—not what your product does. Please describe this using only publicly available information about your startup.”  
-
-      Important framing: Ask the founder to answer as the public would understand the startup, based on public external information.  
-
-      Probing:  
-      - “If your product didn’t exist, what would they still be trying to achieve?”  
-      - “What does success look like from their perspective?”  
-      
-      Reflective statement before transition: “What I’m hearing is that their aspiration is ___. Is that correct? 
-      [founder confirms OR offers more revisions] 
-      Now let’s move on to the next variable.”`)}
+      {stripIndent(t.founder.scripts.goal)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -1376,7 +1330,7 @@ function App() {
               <textarea
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-y text-sm placeholder-gray-300"
                 rows={2}
-                placeholder="e.g. To identify critical fractures accurately and quickly"
+                placeholder={t.founder.placeholders.goal}
                 value={founderInput.JOB_TO_BE_DONE}
                 onChange={(e) => updateFounderInput('JOB_TO_BE_DONE', e.target.value)}
               />
@@ -1386,26 +1340,13 @@ function App() {
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Barriers
+                  {t.founder.labels.barriers}
                 </label>
 
                 <div className="flex items-center gap-3">
-                  <ScriptDropdown title="View Script">
+                  <ScriptDropdown>
                     <div className="text-sm text-gray-600 whitespace-pre-line">
-      {stripIndent(`
-      Lead Question (verbatim): “What prevents your customers from achieving their aspirations or goals if your solution doesn’t exist? What specific obstacles stand in their way?”  
-
-      Probing:
-      - “Are these functional, emotional, financial, or social barriers?”
-      - “What have they tried that didn’t work?”
-
-      Reflective statement before transition:  “You mentioned ___ as the main barriers. Does that fully capture them?[founder confirms OR offers more revisions] 
-
-      Now let’s move on to the next variable.”  
-      Transitory wording between part 1 & part 2: 
-      “Awesome - now we have finished part 1 where you created your problem statement. Let’s proceed to the second part.”  
-
- `)}
+      {stripIndent(t.founder.scripts.barriers)}
                     </div>
                   </ScriptDropdown>
 
@@ -1419,7 +1360,7 @@ function App() {
                     }
                     className="text-xs text-purple-600 hover:underline font-bold"
                   >
-                    + Add Barrier
+                    {t.founder.addBarrier}
                   </button>
                 </div>
               </div>
@@ -1434,7 +1375,7 @@ function App() {
                     <input
                       type="text"
                       className="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
-                      placeholder="e.g. Fatigue leads to missed fractures"
+                      placeholder={t.founder.placeholders.barrier}
                       value={barrier}
                       onChange={(e) => {
                         const updated = [...founderInput.SPECIFIC_BARRIERS];
@@ -1465,7 +1406,7 @@ function App() {
               onClick={() => setStep(WizardStep.PUBLIC_INFO)}
               className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded"
             >
-              Back
+              {t.founder.back}
             </button>
 
             <button
@@ -1473,7 +1414,7 @@ function App() {
               onClick={submitFounderInput}
               className="bg-purple-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-purple-700"
             >
-              Continue →
+              {t.founder.continue}
             </button>
           </div>
         </div>
@@ -1497,13 +1438,13 @@ function App() {
           <div className="space-y-6">
             {!splitData ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
-                <h2 className="text-2xl font-bold mb-2">4. Post-interview (Upload Transcript)</h2>
-                <p className="text-gray-500 mb-6 text-sm">Split into "Discovery" (Part 1) and "Feedback" (Part 2). Paste text or upload audio and we will transcribe with speaker diarization (auto-splits large files).</p>
+                <h2 className="text-2xl font-bold mb-2">{t.transcript.title}</h2>
+                <p className="text-gray-500 mb-6 text-sm">{t.transcript.description}</p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                    <h3 className="font-bold text-blue-900 mb-1">Upload audio to transcribe (with diarization)</h3>
-                    <p className="text-xs text-blue-900 mb-3">Drop the local meeting recording here.</p>
+                    <h3 className="font-bold text-blue-900 mb-1">{t.transcript.uploadAudioTitle}</h3>
+                    <p className="text-xs text-blue-900 mb-3">{t.transcript.uploadAudioHelp}</p>
                     <input
                       type="file"
                       accept="audio/*"
@@ -1516,7 +1457,7 @@ function App() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Transcribing audio…
+                        {t.transcript.transcribing}
                       </div>
                     )}
                     {transcriptionStatus && (
@@ -1525,38 +1466,38 @@ function App() {
                   </div>
 
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h3 className="font-bold text-gray-800 mb-1">Upload Transcript Text</h3>
-                    <p className="text-xs text-gray-600 mb-3">Paste a transcript or upload a .txt export.</p>
+                    <h3 className="font-bold text-gray-800 mb-1">{t.transcript.transcriptTitle}</h3>
+                    <p className="text-xs text-gray-600 mb-3">{t.transcript.transcriptHelp}</p>
                     <input
                       type="file"
                       accept=".txt,text/plain,.vtt,text/vtt"
                       onChange={handleTranscriptTextUpload}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-gray-200 file:text-gray-800 hover:file:bg-gray-300"
                     />
-                    <p className="text-[11px] text-gray-500 mt-2">Audio transcriptions will auto-fill the text area with speaker labels.</p>
+                    <p className="text-[11px] text-gray-500 mt-2">{t.transcript.transcriptNote}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-bold text-gray-700">Transcript Text</label>
+                  <label className="block text-sm font-bold text-gray-700">{t.transcript.transcriptLabel}</label>
                   {diarizedPreview && (
-                    <span className="text-xs font-semibold text-green-700">Diarized transcription added</span>
+                    <span className="text-xs font-semibold text-green-700">{t.transcript.diarizedAdded}</span>
                   )}
                 </div>
                 <textarea
                   className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y text-xs mb-6"
-                  placeholder="Paste full transcript or upload audio to populate this area with speaker labels..."
+                  placeholder={t.transcript.transcriptPlaceholder}
                   value={transcript}
                   onChange={(e) => handleTranscriptChange(e.target.value)}
                 />
                 <div className="flex justify-between">
-                  <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">Back</button>
+                  <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.transcript.back}</button>
                   <button 
                     onClick={startSplit}
                     disabled={status === AppStatus.PROCESSING || !transcript || isTranscribingAudio}
                     className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {status === AppStatus.PROCESSING || isTranscribingAudio ? 'Processing...' : 'Split Transcript →'}
+                    {status === AppStatus.PROCESSING || isTranscribingAudio ? statuses.processing : t.transcript.split}
                   </button>
                 </div>
               </div>
@@ -1590,6 +1531,7 @@ function App() {
 
       </main>
     </div>
+    </TranslationContext.Provider>
   );
 }
 

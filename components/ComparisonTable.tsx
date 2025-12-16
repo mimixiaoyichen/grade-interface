@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { ComparisonRow, SupportCheckItem, SupportRowState } from '../types';
+import { useT } from '../utils/strings';
 
 interface ComparisonTableProps {
   rows: ComparisonRow[];
@@ -17,6 +18,20 @@ interface ComparisonTableProps {
 }
 
 const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, renderPublicHighlight, revealAISuggestions = true, onEditChange, onNoteChange, componentEvidence, supportByRow, onAddSupportItem, onChangeSupportItem, onConfirmSupportCheck }) => {
+  const text = useT().comparison;
+  const componentLabels: Record<ComparisonRow['component'], string> = {
+    Solution: text.groups.solution,
+    Customer: text.groups.customer,
+    Context: text.groups.context,
+    Goal: text.groups.goal,
+    Barrier: text.groups.barrier
+  };
+  const typeLabels: Record<ComparisonRow['type'], string> = {
+    Modification: text.types.Modification,
+    Omission: text.types.Omission,
+    Hallucination: text.types.Hallucination,
+    Confirmation: text.types.Confirmation
+  };
   const evidenceRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const highlightRefs = useRef<Record<string, HTMLMarkElement | null>>({});
 
@@ -42,6 +57,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
 
   const renderSupportGroup = (
     title: string,
+    placeholderLabel: string,
     items: SupportCheckItem[],
     group: 'omission' | 'hallucination',
     rowId: string
@@ -54,7 +70,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
             onClick={() => onAddSupportItem(rowId, group)}
             className="text-xs font-semibold text-blue-600 hover:text-blue-800"
           >
-            + Add
+            {text.labels.add}
           </button>
         </div>
         <div className="space-y-4">
@@ -69,26 +85,26 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
               : 'bg-gray-50 border-gray-200 text-gray-600';
             const badgeLabel = hasResult
               ? isSupported
-                ? 'Supported'
-                : 'Not Found'
-              : 'Awaiting check';
+                ? text.labels.supported
+                : text.labels.notFound
+              : text.labels.awaiting;
             return (
               <div key={item.id} className="space-y-2">
                 <textarea
                   value={item.text}
                   onChange={(e) => onChangeSupportItem(rowId, group, item.id, e.target.value)}
                   className="w-full text-sm border border-gray-200 rounded p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder={`${title.slice(0, -1)} ${idx + 1}`}
+                  placeholder={`${placeholderLabel} ${idx + 1}`}
                   rows={3}
                 />
                 <div className={`text-xs rounded border p-2 min-h-[60px] ${badgeClass}`}>
                   <div className="text-[10px] font-semibold uppercase tracking-wide mb-1">{badgeLabel}</div>
                   {hasResult ? (
                     <div className="text-gray-800">
-                      {renderPublicHighlight ? renderPublicHighlight(context || '') : (context || '—')}
+                      {renderPublicHighlight ? renderPublicHighlight(context || '') : (context || text.labels.notAvailable)}
                     </div>
                   ) : (
-                    <div className="text-gray-500">Run "Confirm" to see public support.</div>
+                    <div className="text-gray-500">{text.labels.runConfirm}</div>
                   )}
                 </div>
               </div>
@@ -116,7 +132,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
     return (
       <div className="mb-8" key={component}>
         <h3 className="text-lg font-bold text-gray-800 mb-3 px-1 border-l-4 border-gray-800 pl-3 uppercase tracking-wide">
-          {component}
+          {componentLabels[component as ComparisonRow['component']] || component}
         </h3>
         <div className="space-y-4">
           {groupRows.map((row) => {
@@ -130,7 +146,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
 
             const renderEvidenceContent = (context: string, core?: string) => {
               if (!context) {
-                return <span className="italic text-gray-400">No transcript evidence</span>;
+                return <span className="italic text-gray-400">{text.labels.noEvidence}</span>;
               }
 
               if (core && core.trim() && context.includes(core)) {
@@ -182,12 +198,12 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
               <div key={row.id} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                   <div className="text-gray-600 text-sm space-y-3">
-                    <div className="text-[10px] uppercase text-gray-400 font-semibold">LLM-Generated</div>
+                    <div className="text-[10px] uppercase text-gray-400 font-semibold">{text.labels.llmGenerated}</div>
                     <div>{row.baselineText || <span className="italic text-gray-300">--</span>}</div>
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getBadgeColor(row.type)} uppercase`}>
-                          {row.type}
+                          {typeLabels[row.type]}
                         </span>
                       </div>
                       <div className="border border-gray-200 rounded-lg p-2 bg-white shadow-inner">
@@ -206,7 +222,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
                     </div>
                   </div>
                   <div className="md:col-span-1 md:h-full">
-                    <div className="text-[10px] uppercase text-gray-400 font-semibold mb-1">Evidence (Transcript)</div>
+                    <div className="text-[10px] uppercase text-gray-400 font-semibold mb-1">{text.labels.evidence}</div>
                     <div
                       className="text-gray-700 text-sm leading-relaxed bg-gray-50 border border-dashed border-gray-200 rounded p-3 max-h-[28rem] md:h-full overflow-y-auto whitespace-pre-wrap"
                       ref={(el) => { evidenceRefs.current[row.id] = el; }}
@@ -219,8 +235,8 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
                 <div className="mt-4 border-t border-gray-100 pt-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-semibold text-gray-800">Omissions & Hallucinations</div>
-                      <p className="text-xs text-gray-500">Capture and check public support for this statement.</p>
+                      <div className="text-sm font-semibold text-gray-800">{text.labels.omissionsHallucinations}</div>
+                      <p className="text-xs text-gray-500">{text.labels.captureSupport}</p>
                     </div>
                     {(() => {
                       const support = supportByRow[row.id];
@@ -231,7 +247,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
                           disabled={loading}
                           className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-blue-700 disabled:opacity-60"
                         >
-                          {loading ? 'Checking…' : 'Confirm & Check Public Support'}
+                          {loading ? text.labels.checking : text.labels.confirmSupport}
                         </button>
                       );
                     })()}
@@ -241,8 +257,8 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
                     const support = supportByRow[row.id] || { omissions: [], hallucinations: [] };
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {renderSupportGroup('Omissions', support.omissions, 'omission', row.id)}
-                        {renderSupportGroup('Hallucinations', support.hallucinations, 'hallucination', row.id)}
+                        {renderSupportGroup(text.labels.omissions, text.labels.placeholderOmission, support.omissions, 'omission', row.id)}
+                        {renderSupportGroup(text.labels.hallucinations, text.labels.placeholderHallucination, support.hallucinations, 'hallucination', row.id)}
                       </div>
                     );
                   })()}
