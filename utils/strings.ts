@@ -445,14 +445,14 @@ Transitory wording between part 1 & part 2:
       baselineRequired: '在分析访谈记录前需要基线陈述。',
       transcriptRequired: '需要访谈记录文本。',
       publicSupportInfoMissing: '在检查公开支持信息前需要公开信息。',
-      noSupportItems: '没有可检查的遗漏或幻觉内容。',
-      supportCheckFailed: '公开支持检查失败。',
+      noSupportItems: '没有可检查的内容。',
+      supportCheckFailed: '公开证据检查失败。',
       loadJsonFailed: '加载 JSON 失败：',
       comparisonFailed: '生成对比失败。'
     },
     statuses: {
       uploadingAudio: '正在上传音频',
-      processingDiarization: '使用 ElevenLabs（说话人分离）处理...',
+      processingDiarization: '使用 ElevenLabs（区分说话人）处理...',
       transcriptionDone: '转写完成。请在分割前查看或修改。',
       transcriptionErrorPrefix: '转写错误：',
       processing: '处理中...',
