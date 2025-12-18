@@ -402,6 +402,90 @@ Transitory wording between part 1 & part 2:
         done: 'Done'
       }
     },
+    tour: {
+      start: 'Start walkthrough',
+      controls: {
+        next: 'Next hint',
+        prev: 'Back',
+        finish: 'Finish tour',
+        close: 'Exit tour',
+        demoNote: 'Showing demo data. Close the tour to return to your work.'
+      },
+      steps: {
+        progress: {
+          title: 'Track progress',
+          description: 'Use the step bar to hop across the workflow; the tour auto-advances for you.'
+        },
+        publicInfo: {
+          title: 'Add public info',
+          description: 'Paste a URL or pitchbook text. We fetch and combine it to seed the baseline.'
+        },
+        fetchUrl: {
+          title: 'Fetch from URL',
+          description: 'Drop a homepage link and click Fetch to pull public copy automatically.'
+        },
+        generateBaseline: {
+          title: 'Generate baseline',
+          description: 'Run the baseline with your fetched text; you can regenerate after edits.'
+        },
+        baselinePreview: {
+          title: 'Baseline preview',
+          description: 'Review the AI baseline that comes from public info before interviewing.'
+        },
+        founderInput: {
+          title: "Founder perspective",
+          description: 'Use the prompts to capture the founder’s answers and add barriers.'
+        },
+        consent: {
+          title: 'Capture consent',
+          description: 'Log recording and data consent here before you start asking questions.'
+        },
+        baselineReview: {
+          title: 'Edit the baseline',
+          description: 'Tune the draft so all later comparisons use your edits.'
+        },
+        transcriptUpload: {
+          title: 'Upload audio or text',
+          description: 'Transcribe audio or paste raw text, then map speaker labels if diarization looks off; keep edits here before splitting.'
+        },
+        transcriptUploadAudio: {
+          title: 'Add audio',
+          description: 'Drop a recording to auto-transcribe and get diarization labels; you can remap speakers later.'
+        },
+        transcriptUploadText: {
+          title: 'Add raw text',
+          description: 'Upload a .txt/VTT file or paste transcript text directly if you already have it.'
+        },
+        transcriptEdit: {
+          title: 'Clean transcript',
+          description: 'Fix diarization labels or typos here; the split uses whatever you keep in this editor.'
+        },
+        transcriptSplit: {
+          title: 'Split the transcript',
+          description: 'Drag or edit the split for Part 1 vs Part 2 and explain your reasoning so the comparison reflects the right boundary.'
+        },
+        transcriptSplitEdit: {
+          title: 'Adjust split',
+          description: 'Review Part 1 vs Part 2 text and tweak the boundary if the automatic split is off.'
+        },
+        transcriptSplitReason: {
+          title: 'Document why',
+          description: 'Keep a quick note explaining why this split point makes sense; it shows up in the review.'
+        },
+        transcriptSplitConfirm: {
+          title: 'Confirm and analyze',
+          description: 'Lock in the split to run Part 1 analysis and prepare the comparison table.'
+        },
+        comparisonTable: {
+          title: 'Review changes',
+          description: 'Accept or edit modifications, omissions, and hallucinations with evidence.'
+        },
+        comparisonExport: {
+          title: 'Export notes',
+          description: 'Download the JSON record once review is complete.'
+        }
+      }
+    },
     guide: {
       title: 'Interviewer Training Guidance',
       description: 'Verbatim content, grouped for quick scanning.',
@@ -786,6 +870,90 @@ Transitory wording between part 1 & part 2:
         dataConsent: '勾选表示你自愿同意按照本附录描述使用个人信息。',
         dataConsentHint: '如适用，请先开启“非美国创始人”再记录该同意。',
         done: '完成'
+      }
+    },
+    tour: {
+      start: '开始演示',
+      controls: {
+        next: '下一步',
+        prev: '上一步',
+        finish: '结束演示',
+        close: '退出演示',
+        demoNote: '当前展示演示数据，关闭即可恢复你的内容。'
+      },
+      steps: {
+        progress: {
+          title: '进度栏',
+          description: '顶部步骤栏可以跳转各环节，演示会自动带你浏览。'
+        },
+        publicInfo: {
+          title: '填入公开信息',
+          description: '粘贴网址或 Pitchbook 文本，我们会抓取并整合以生成基线。'
+        },
+        fetchUrl: {
+          title: '网址抓取',
+          description: '粘贴官网链接并点击“抓取”自动获取公开文案。'
+        },
+        generateBaseline: {
+          title: '生成基线',
+          description: '用公开文本生成基线，修改后可再生成。'
+        },
+        baselinePreview: {
+          title: '基线预览',
+          description: '先查看 AI 基线（来自公开信息），再进入访谈。'
+        },
+        founderInput: {
+          title: '记录创始人视角',
+          description: '按照右侧脚本提问并填写各要素，可随时添加障碍。'
+        },
+        consent: {
+          title: '记录同意',
+          description: '开始前在此记录录音及数据同意情况。'
+        },
+        baselineReview: {
+          title: '编辑基线',
+          description: '调整草稿，后续所有对比都会基于你的修改。'
+        },
+        transcriptUpload: {
+          title: '上传音频或文本',
+          description: '先转写音频或粘贴文本，若说话人标签有误可在此重映射；拆分前可直接修改内容。'
+        },
+        transcriptUploadAudio: {
+          title: '添加音频',
+          description: '上传录音自动转写并生成说话人标签；后续可重新映射。'
+        },
+        transcriptUploadText: {
+          title: '添加文本',
+          description: '上传 .txt/VTT 或直接粘贴已有的访谈文本。'
+        },
+        transcriptEdit: {
+          title: '清理文本',
+          description: '在这里修正说话人标签或错别字，拆分会使用此处的内容。'
+        },
+        transcriptSplit: {
+          title: '拆分记录',
+          description: '拖动或编辑上下半段的分界，并补充分割理由，确保后续对比使用正确的边界。'
+        },
+        transcriptSplitEdit: {
+          title: '调整分界',
+          description: '检查上半段与下半段文本，如自动分界不准可在此调整。'
+        },
+        transcriptSplitReason: {
+          title: '记录原因',
+          description: '写一句话说明为何在此分界，后续复盘时能看到。'
+        },
+        transcriptSplitConfirm: {
+          title: '确认并分析',
+          description: '锁定分界后运行上半段分析，并准备下半段对比表。'
+        },
+        comparisonTable: {
+          title: '审核变化',
+          description: '逐项接受/修改变更、遗漏或幻觉，并标注证据。'
+        },
+        comparisonExport: {
+          title: '导出记录',
+          description: '完成审核后导出 JSON 记录。'
+        }
       }
     },
     guide: {

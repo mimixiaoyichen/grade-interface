@@ -16,11 +16,11 @@ const SplitVerifier: React.FC<SplitVerifierProps> = ({ split, onConfirm, onCance
   const t = useT().splitVerifier;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 animate-fade-in-up">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 animate-fade-in-up" data-tour-id="tour-split-view">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-800">{t.title}</h2>
         <p className="text-gray-500 text-sm mt-1">{t.description}</p>
-        <div className="mt-2 bg-blue-50 text-blue-700 p-3 rounded text-sm border border-blue-100">
+        <div className="mt-2 bg-blue-50 text-blue-700 p-3 rounded text-sm border border-blue-100" data-tour-id="tour-split-reason">
           <strong>{t.reasoning}</strong> {split.reasoning}
         </div>
       </div>
@@ -65,6 +65,7 @@ const SplitVerifier: React.FC<SplitVerifierProps> = ({ split, onConfirm, onCance
           onClick={() => onConfirm(p1, p2)}
           disabled={isProcessing}
           className="px-6 py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          data-tour-id="tour-split-confirm"
         >
           {isProcessing && (
             <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -50,23 +50,29 @@ const Part2Comparison: React.FC<Part2ComparisonProps> = ({
               {t.loadJson}
             </button>
           )}
-          <button onClick={onExportJson} className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-black font-bold">
+          <button
+            onClick={onExportJson}
+            className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-black font-bold"
+            data-tour-id="tour-comparison-export"
+          >
             {t.downloadJson}
           </button>
         </div>
       </div>
 
-      <ComparisonTable
-        rows={comparisonRows}
-        onUpdate={onUpdateRows}
-        renderPublicHighlight={renderPublicHighlight}
-        revealAISuggestions={false}
-        componentEvidence={componentEvidence || undefined}
-        supportByRow={supportByRow}
-        onAddSupportItem={onAddSupportItem}
-        onChangeSupportItem={onChangeSupportItem}
-        onConfirmSupportCheck={onConfirmSupportCheck}
-      />
+      <div data-tour-id="tour-comparison-table">
+        <ComparisonTable
+          rows={comparisonRows}
+          onUpdate={onUpdateRows}
+          renderPublicHighlight={renderPublicHighlight}
+          revealAISuggestions={false}
+          componentEvidence={componentEvidence || undefined}
+          supportByRow={supportByRow}
+          onAddSupportItem={onAddSupportItem}
+          onChangeSupportItem={onChangeSupportItem}
+          onConfirmSupportCheck={onConfirmSupportCheck}
+        />
+      </div>
     </div>
   );
 };

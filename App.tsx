@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SplitVerifier from './components/SplitVerifier';
 import BaselineReview from './components/BaselineReview';
 import ComparisonTable from './components/ComparisonTable';
@@ -33,6 +33,7 @@ import StepIndicator from './components/StepIndicator';
 import SpeakerModal from './components/SpeakerModal';
 import Part2Comparison from './components/Part2Comparison';
 import ConsentModal from './components/ConsentModal';
+import GuidedTour, { TourStep as GuidedTourStep } from './components/GuidedTour';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
 
 const getComponentText = (
@@ -77,6 +78,227 @@ const stripIndent = (text: string) =>
     .replace(/\n[ \t]+/g, '\n')
     .trim();
 
+type TourSample = {
+  companyUrl: string;
+  pitchbookInfo: string;
+  publicInfo: string;
+  baseline: BaselineStatement;
+  transcript: string;
+  comparisonRows: ComparisonRow[];
+  componentEvidence: ComponentEvidence;
+  part2Notes?: string;
+  splitData?: TranscriptSplit;
+};
+
+type WizardTourStep = GuidedTourStep & { wizardStep: WizardStep };
+
+const TOUR_SAMPLE_CONTENT: Record<LocaleKey, TourSample> = {
+  en: {
+    companyUrl: 'https://oriongrid.com',
+    pitchbookInfo: 'OrionGrid builds an AI copilot for microgrid operators balancing clean energy and reliability.',
+    publicInfo: 'Recent coverage shows OrionGrid helping island utilities forecast outages and automate backup generator schedules across 140 sites.',
+    baseline: {
+      SOLUTION: 'AI copilot that predicts demand spikes and tunes batteries automatically.',
+      CUSTOMER_SEGMENT: 'Utility operators managing microgrids for island communities.',
+      LIFE_BUSINESS_CONTEXT: 'When storms or heatwaves threaten grid stability and staff is thin.',
+      JOB_TO_BE_DONE: 'Keep power stable while hitting clean-energy targets and budgets.',
+      SPECIFIC_BARRIERS: [
+        'Manual schedules waste fuel and trigger outages.',
+        'Limited visibility into battery health across sites.',
+        'Small teams cannot watch dozens of assets overnight.'
+      ]
+    },
+    transcript: [
+      'Speaker 1: We mainly serve island utilities that juggle solar and diesel fleets.',
+      'Speaker 1: During storms they need alerts and suggested schedules.',
+      'Speaker 1: Operators also leave notes so teammates see what changed overnight.',
+      'Speaker 2: So reliability and emissions both matter to them.'
+    ].join('\n'),
+    comparisonRows: [
+      {
+        id: 'tour-row-customer',
+        component: 'Customer',
+        baselineText: 'Utility operators managing microgrids for island communities.',
+        transcriptModification: 'Island utility control rooms coordinating diesel, solar, and battery assets.',
+        reviewerEdit: 'Island utility control rooms',
+        type: 'Modification',
+        transcriptEvidence: '“We mainly serve island utilities that juggle solar and diesel fleets.”',
+        publicSupport: 'Supported by company press release.',
+        publicEvidence: 'Announced rollout with Pacific Islands Utility.',
+        publicEvidenceContext: 'Press release mentions 140 microgrids with hybrid assets.',
+        isSupportedByPublic: true,
+        isAccepted: false,
+        reviewerNotes: '',
+        reviewerDecision: 'Supported'
+      },
+      {
+        id: 'tour-row-goal',
+        component: 'Goal',
+        baselineText: 'Keep power stable while hitting clean-energy targets and budgets.',
+        transcriptModification: 'Prevent outages during storms without overspending on diesel.',
+        reviewerEdit: 'Prevent outages during storms without overspending on diesel.',
+        type: 'Modification',
+        transcriptEvidence: '“During storms they need alerts and suggested schedules.”',
+        publicSupport: 'Supported by sustainability report.',
+        publicEvidence: 'Case study about balancing emissions and uptime.',
+        publicEvidenceContext: 'Sustainability report quoting operators on storm prep.',
+        isSupportedByPublic: true,
+        isAccepted: false,
+        reviewerNotes: '',
+        reviewerDecision: 'Supported'
+      },
+      {
+        id: 'tour-row-barrier',
+        component: 'Barrier',
+        baselineText: 'Small teams cannot watch dozens of assets overnight.',
+        transcriptModification: 'Hard to share incident notes across shifts.',
+        reviewerEdit: 'Need shared incident notes for shifts.',
+        type: 'Hallucination',
+        transcriptEvidence: '“Operators also leave notes so teammates see what changed overnight.”',
+        publicSupport: 'Not covered in press material.',
+        publicEvidence: 'No public quote yet.',
+        publicEvidenceContext: '',
+        isSupportedByPublic: false,
+        isAccepted: false,
+        reviewerNotes: '',
+        reviewerDecision: 'Not supported'
+      }
+    ],
+    componentEvidence: {
+      customer: {
+        context: 'Transcript calls out island utilities juggling solar and diesel.',
+        core: 'Island utility control rooms'
+      },
+      context: {
+        context: 'Storm prep appears multiple times in the transcript.',
+        core: 'When storms threaten isolated grids'
+      },
+      goal: {
+        context: 'Operators care about uptime and fuel spend during weather events.',
+        core: 'Keep power on without overspending on fuel'
+      },
+      barrier: {
+        context: 'Notes about handoffs between shifts.',
+        core: 'Hard to share incident notes across crews'
+      }
+    },
+    part2Notes: 'Demo: reviewers discuss how storms change the customer story.',
+    splitData: {
+      part1: [
+        'Speaker 1: We mainly serve island utilities that juggle solar and diesel fleets.',
+        'Speaker 1: During storms they need alerts and suggested schedules.'
+      ].join('\n'),
+      part2: [
+        'Speaker 1: Operators also leave notes so teammates see what changed overnight.',
+        'Speaker 2: So reliability and emissions both matter to them.'
+      ].join('\n'),
+      reasoning: 'Storm prep vs follow-up shift handoffs.'
+    }
+  },
+  zh: {
+    companyUrl: 'https://oriongrid.cn/demo',
+    pitchbookInfo: 'OrionGrid 为微电网运营团队提供 AI 调度助手，兼顾清洁能源和稳定性。',
+    publicInfo: '媒体报道其帮助岛屿电网预测停电并自动安排备用机组，覆盖 140 个站点。',
+    baseline: {
+      SOLUTION: 'AI 能源调度助手，预测负载并自动调整电池与柴油机。',
+      CUSTOMER_SEGMENT: '偏远社区的微电网运营团队',
+      LIFE_BUSINESS_CONTEXT: '在台风或高温导致电网不稳定、人手紧张时',
+      JOB_TO_BE_DONE: '保持供电稳定，同时达成清洁能源目标和成本预算',
+      SPECIFIC_BARRIERS: [
+        '人工排班耗油且容易停电',
+        '电池健康状况透明度低',
+        '小团队无法实时盯几十个站点'
+      ]
+    },
+    transcript: [
+      'Speaker 1: 我们主要服务岛屿电网，协调太阳能和柴油机。',
+      'Speaker 1: 台风前他们需要提前预警和调度建议。',
+      'Speaker 1: 值班同事会留下笔记，方便夜班接手。',
+      'Speaker 2: 他们同时在意可靠性和减排。'
+    ].join('\n'),
+    comparisonRows: [
+      {
+        id: 'tour-row-customer-zh',
+        component: 'Customer',
+        baselineText: '偏远社区的微电网运营团队',
+        transcriptModification: '协调柴油、光伏和电池的岛屿电网调度团队',
+        reviewerEdit: '岛屿电网调度团队',
+        type: 'Modification',
+        transcriptEvidence: '“我们主要服务岛屿电网，协调太阳能和柴油机。”',
+        publicSupport: '公司新闻稿支持',
+        publicEvidence: '宣布与太平洋某岛屿电网合作',
+        publicEvidenceContext: '新闻稿提到覆盖 140 个混合能源站点。',
+        isSupportedByPublic: true,
+        isAccepted: false,
+        reviewerNotes: '',
+        reviewerDecision: 'Supported'
+      },
+      {
+        id: 'tour-row-goal-zh',
+        component: 'Goal',
+        baselineText: '保持供电稳定，同时达成清洁能源目标和成本预算',
+        transcriptModification: '台风来时避免停电，同时不额外耗油',
+        reviewerEdit: '台风来时避免停电且控制柴油成本',
+        type: 'Modification',
+        transcriptEvidence: '“台风前他们需要提前预警和调度建议。”',
+        publicSupport: '可从可持续发展报告支撑',
+        publicEvidence: '案例提到平衡排放与稳定性',
+        publicEvidenceContext: '报告引用运维团队谈台风准备。',
+        isSupportedByPublic: true,
+        isAccepted: false,
+        reviewerNotes: '',
+        reviewerDecision: 'Supported'
+      },
+      {
+        id: 'tour-row-barrier-zh',
+        component: 'Barrier',
+        baselineText: '小团队无法实时盯几十个站点',
+        transcriptModification: '跨班次共享事件笔记较难',
+        reviewerEdit: '需要跨班次的事件记录',
+        type: 'Hallucination',
+        transcriptEvidence: '“值班同事会留下笔记，方便夜班接手。”',
+        publicSupport: '公开资料暂无',
+        publicEvidence: '尚未看到公开证据',
+        publicEvidenceContext: '',
+        isSupportedByPublic: false,
+        isAccepted: false,
+        reviewerNotes: '',
+        reviewerDecision: 'Not supported'
+      }
+    ],
+    componentEvidence: {
+      customer: {
+        context: '访谈提到岛屿电网调度场景。',
+        core: '岛屿电网调度团队'
+      },
+      context: {
+        context: '多次提到台风和夜班情境。',
+        core: '台风来临、人手紧张时'
+      },
+      goal: {
+        context: '强调不停电且控制油耗。',
+        core: '在极端天气保持供电并减少柴油使用'
+      },
+      barrier: {
+        context: '提到跨班次的交接笔记。',
+        core: '跨班次信息传递困难'
+      }
+    },
+    part2Notes: '演示：讨论台风情景如何影响客户描述。',
+    splitData: {
+      part1: [
+        'Speaker 1: 我们主要服务岛屿电网，协调太阳能和柴油机。',
+        'Speaker 1: 台风前他们需要提前预警和调度建议。'
+      ].join('\n'),
+      part2: [
+        'Speaker 1: 值班同事会留下笔记，方便夜班接手。',
+        'Speaker 2: 他们同时在意可靠性和减排。'
+      ].join('\n'),
+      reasoning: '前半段是台风前调度，后半段是交班和需求影响。'
+    }
+  }
+};
+
 export const ScriptDropdown = ({ title, children }) => {
   const { common } = useT();
   const resolvedTitle = title || common.viewScript;
@@ -111,9 +333,11 @@ function App() {
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const tourSnapshotRef = useRef<any>(null);
   const [locale, setLocale] = useState<LocaleKey>('en');
   const t = getTranslation(locale);
   const { common, errors, statuses } = t;
+  const tourSampleRef = useRef<TourSample | null>(null);
 
   // --- State Data ---
   
@@ -157,6 +381,8 @@ function App() {
   const [founderRecordConsent, setFounderRecordConsent] = useState<boolean>(false);
   const [internationalFounder, setInternationalFounder] = useState<boolean>(false);
   const [founderDataConsent, setFounderDataConsent] = useState<boolean>(false);
+  const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
+  const [tourStepIndex, setTourStepIndex] = useState<number>(0);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -164,6 +390,274 @@ function App() {
       setShowGuideGlow(true);
     }
   }, []);
+
+  const tourSteps: WizardTourStep[] = useMemo(() => [
+    {
+      id: 'tour-progress',
+      targetId: 'tour-step-indicator',
+      title: t.tour.steps.progress.title,
+      description: t.tour.steps.progress.description,
+      wizardStep: WizardStep.PUBLIC_INFO
+    },
+    {
+      id: 'tour-public-info',
+      targetId: 'tour-public-info',
+      title: t.tour.steps.publicInfo.title,
+      description: t.tour.steps.publicInfo.description,
+      wizardStep: WizardStep.PUBLIC_INFO
+    },
+    {
+      id: 'tour-fetch-url',
+      targetId: 'tour-fetch-url',
+      title: t.tour.steps.fetchUrl.title,
+      description: t.tour.steps.fetchUrl.description,
+      wizardStep: WizardStep.PUBLIC_INFO
+    },
+    {
+      id: 'tour-generate-baseline',
+      targetId: 'tour-generate-baseline',
+      title: t.tour.steps.generateBaseline.title,
+      description: t.tour.steps.generateBaseline.description,
+      wizardStep: WizardStep.PUBLIC_INFO
+    },
+    {
+      id: 'tour-baseline-preview',
+      targetId: 'tour-baseline-preview',
+      title: t.tour.steps.baselinePreview.title,
+      description: t.tour.steps.baselinePreview.description,
+      wizardStep: WizardStep.PUBLIC_INFO
+    },
+    {
+      id: 'tour-founder',
+      targetId: 'tour-founder-input',
+      title: t.tour.steps.founderInput.title,
+      description: t.tour.steps.founderInput.description,
+      wizardStep: WizardStep.FOUNDER_INPUT
+    },
+    {
+      id: 'tour-consent',
+      targetId: 'tour-consent',
+      title: t.tour.steps.consent.title,
+      description: t.tour.steps.consent.description,
+      wizardStep: WizardStep.FOUNDER_INPUT
+    },
+    {
+      id: 'tour-baseline-review',
+      targetId: 'tour-baseline-review',
+      title: t.tour.steps.baselineReview.title,
+      description: t.tour.steps.baselineReview.description,
+      wizardStep: WizardStep.BASELINE_REVIEW
+    },
+    {
+      id: 'tour-transcript-audio',
+      targetId: 'tour-transcript-audio',
+      title: t.tour.steps.transcriptUploadAudio.title,
+      description: t.tour.steps.transcriptUploadAudio.description,
+      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
+    },
+    {
+      id: 'tour-transcript-text',
+      targetId: 'tour-transcript-text',
+      title: t.tour.steps.transcriptUploadText.title,
+      description: t.tour.steps.transcriptUploadText.description,
+      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
+    },
+    {
+      id: 'tour-transcript-editor',
+      targetId: 'tour-transcript-editor',
+      title: t.tour.steps.transcriptEdit.title,
+      description: t.tour.steps.transcriptEdit.description,
+      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
+    },
+    {
+      id: 'tour-split-view',
+      targetId: 'tour-split-view',
+      title: t.tour.steps.transcriptSplitEdit.title,
+      description: t.tour.steps.transcriptSplitEdit.description,
+      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
+    },
+    {
+      id: 'tour-split-reason',
+      targetId: 'tour-split-reason',
+      title: t.tour.steps.transcriptSplitReason.title,
+      description: t.tour.steps.transcriptSplitReason.description,
+      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
+    },
+    {
+      id: 'tour-split-confirm',
+      targetId: 'tour-split-confirm',
+      title: t.tour.steps.transcriptSplitConfirm.title,
+      description: t.tour.steps.transcriptSplitConfirm.description,
+      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
+    },
+    {
+      id: 'tour-comparison-table',
+      targetId: 'tour-comparison-table',
+      title: t.tour.steps.comparisonTable.title,
+      description: t.tour.steps.comparisonTable.description,
+      wizardStep: WizardStep.PART2_COMPARISON
+    },
+    {
+      id: 'tour-comparison-export',
+      targetId: 'tour-comparison-export',
+      title: t.tour.steps.comparisonExport.title,
+      description: t.tour.steps.comparisonExport.description,
+      wizardStep: WizardStep.PART2_COMPARISON
+    }
+  ], [t]);
+
+  const applyTourData = useCallback((targetLocale: LocaleKey) => {
+    const sample = TOUR_SAMPLE_CONTENT[targetLocale] || TOUR_SAMPLE_CONTENT.en;
+    const combinedSource = [sample.pitchbookInfo, sample.publicInfo].filter(Boolean).join('\n\n').trim();
+    tourSampleRef.current = sample;
+    setStatus(AppStatus.IDLE);
+    setErrorMsg('');
+    setCompanyUrl(sample.companyUrl);
+    setPitchbookInfo(sample.pitchbookInfo);
+    setPublicInfo(sample.publicInfo);
+    setBaselineSource(combinedSource);
+    setHasFetchedPublicInfo(true);
+    setBaselineStatement(sample.baseline);
+    setBaselineGenerated(sample.baseline);
+    setBaselineLLM(sample.baseline);
+    setFounderInput(sample.baseline);
+    setTranscript(sample.transcript);
+    setDiarizedPreview(sample.transcript);
+    setSplitData(null);
+    setPart1Result(null);
+    setComparisonRows(sample.comparisonRows);
+    setSupportByRow(buildSupportState(sample.comparisonRows));
+    setComponentEvidence(sample.componentEvidence);
+    setPart2Notes(sample.part2Notes || '');
+    setShowSpeakerModal(false);
+    setSpeakerLabels([]);
+    setSpeakerMapping({});
+    setTranscriptionStatus('');
+    setIsTranscribingAudio(false);
+    setIsConsentOpen(false);
+  }, []);
+
+  const startTour = () => {
+    if (isTourOpen) return;
+    tourSnapshotRef.current = {
+      step,
+      status,
+      errorMsg,
+      companyUrl,
+      pitchbookInfo,
+      publicInfo,
+      baselineSource,
+      hasFetchedPublicInfo,
+      baselineStatement,
+      baselineGenerated,
+      baselineLLM,
+      founderInput,
+      transcript,
+      splitData,
+      part1Result,
+      comparisonRows,
+      componentEvidence,
+      supportByRow,
+      part2Notes,
+      diarizedPreview,
+      transcriptionStatus,
+      isTranscribingAudio,
+      showGuideGlow,
+      isGuideOpen,
+      founderRecordConsent,
+      internationalFounder,
+      founderDataConsent,
+      isConsentOpen,
+      showSpeakerModal,
+      speakerLabels,
+      speakerMapping
+    };
+    setIsTourOpen(true);
+    setIsGuideOpen(false);
+    setShowGuideGlow(false);
+    applyTourData(locale);
+    setStep(WizardStep.PUBLIC_INFO);
+    setTourStepIndex(0);
+  };
+
+  const closeTour = () => {
+    const snapshot = tourSnapshotRef.current;
+    setIsTourOpen(false);
+    setTourStepIndex(0);
+    if (!snapshot) return;
+    setStep(snapshot.step);
+    setStatus(snapshot.status);
+    setErrorMsg(snapshot.errorMsg);
+    setCompanyUrl(snapshot.companyUrl);
+    setPitchbookInfo(snapshot.pitchbookInfo);
+    setPublicInfo(snapshot.publicInfo);
+    setBaselineSource(snapshot.baselineSource);
+    setHasFetchedPublicInfo(snapshot.hasFetchedPublicInfo);
+    setBaselineStatement(snapshot.baselineStatement);
+    setBaselineGenerated(snapshot.baselineGenerated);
+    setBaselineLLM(snapshot.baselineLLM);
+    setFounderInput(snapshot.founderInput);
+    setTranscript(snapshot.transcript);
+    setSplitData(snapshot.splitData);
+    setPart1Result(snapshot.part1Result);
+    setComparisonRows(snapshot.comparisonRows || []);
+    setSupportByRow(snapshot.supportByRow || {});
+    setComponentEvidence(snapshot.componentEvidence || null);
+    setPart2Notes(snapshot.part2Notes || '');
+    setDiarizedPreview(snapshot.diarizedPreview || '');
+    setTranscriptionStatus(snapshot.transcriptionStatus || '');
+    setIsTranscribingAudio(Boolean(snapshot.isTranscribingAudio));
+    setShowSpeakerModal(Boolean(snapshot.showSpeakerModal));
+    setSpeakerLabels(snapshot.speakerLabels || []);
+    setSpeakerMapping(snapshot.speakerMapping || {});
+    setIsConsentOpen(Boolean(snapshot.isConsentOpen));
+    setFounderRecordConsent(Boolean(snapshot.founderRecordConsent));
+    setInternationalFounder(Boolean(snapshot.internationalFounder));
+    setFounderDataConsent(Boolean(snapshot.founderDataConsent));
+    setShowGuideGlow(Boolean(snapshot.showGuideGlow));
+    setIsGuideOpen(Boolean(snapshot.isGuideOpen));
+    tourSnapshotRef.current = null;
+  };
+
+  const handleTourNext = () => {
+    setTourStepIndex((idx) => Math.min(idx + 1, tourSteps.length - 1));
+  };
+
+  const handleTourPrev = () => {
+    setTourStepIndex((idx) => Math.max(idx - 1, 0));
+  };
+
+  useEffect(() => {
+    if (!isTourOpen) return;
+    const current = tourSteps[tourStepIndex];
+    if (current) {
+      setStep(current.wizardStep);
+    }
+  }, [isTourOpen, tourSteps, tourStepIndex]);
+
+  useEffect(() => {
+    if (isTourOpen) {
+      applyTourData(locale);
+    }
+  }, [applyTourData, isTourOpen, locale]);
+
+  useEffect(() => {
+    if (!isTourOpen) return;
+    const splitStepIds = new Set([
+      'tour-split-view',
+      'tour-split-reason',
+      'tour-split-confirm'
+    ]);
+    const needsSplit = splitStepIds.has(tourSteps[tourStepIndex]?.id);
+    if (needsSplit) {
+      const sampleSplit = tourSampleRef.current?.splitData;
+      if (sampleSplit) {
+        setSplitData(sampleSplit);
+      }
+    } else {
+      setSplitData(null);
+    }
+  }, [isTourOpen, tourSteps, tourStepIndex]);
 
   // --- Logic & Handlers ---
 
@@ -989,13 +1483,32 @@ function App() {
   return (
     <TranslationContext.Provider value={t}>
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
-      <div className="bg-white p-4 shadow-sm border-b border-gray-200 sticky top-0 z-20">
-         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-             <h1 className="text-xl font-bold text-gray-800">{common.appTitle}</h1>
+             <div>
+               <h1 className="text-lg sm:text-xl font-bold text-gray-800 leading-tight">{common.appTitle}</h1>
+               <div className="flex items-center gap-2 mt-1">
+                 <span className="bg-blue-100 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">{common.beta}</span>
+                 <span className="text-[12px] font-semibold text-gray-600">{`${common.stepLabel} ${currentStepIndex + 1} / ${totalSteps}`}</span>
+               </div>
+             </div>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+             <button
+               onClick={() => {
+                 setIsGuideOpen(true);
+                 setShowGuideGlow(false);
+                 localStorage.setItem('guide_seen', 'true');
+               }}
+               className={`text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded shadow-sm relative ${showGuideGlow ? 'animate-pulse' : ''}`}
+             >
+               {common.guide}
+               {showGuideGlow && (
+                 <span className="absolute inset-0 rounded-full shadow-[0_0_0_6px_rgba(59,130,246,0.25)] pointer-events-none"></span>
+               )}
+             </button>
              <button
                onClick={() => setLocale((prev) => prev === 'zh' ? 'en' : 'zh')}
                className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
@@ -1003,41 +1516,20 @@ function App() {
                {locale === 'zh' ? common.languageEn : common.languageZh}
              </button>
              <button
-               onClick={() => {
-                 setIsGuideOpen(true);
-                 setShowGuideGlow(false);
-                 localStorage.setItem('guide_seen', 'true');
-               }}
-               className={`text-sm font-semibold text-blue-600 hover:text-blue-800 underline relative ${showGuideGlow ? 'animate-pulse' : ''}`}
-             >
-               {common.guide}
-               {showGuideGlow && (
-                 <span className="absolute inset-0 rounded-full shadow-[0_0_0_6px_rgba(59,130,246,0.25)] pointer-events-none"></span>
-               )}
-             </button>
-         </div>
-       </div>
-     </div>
-
-      <header className="bg-white shadow-sm border-b border-gray-200 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-           <div className="flex items-center gap-2">
-             <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">{common.beta}</span>
-             <h2 className="text-sm font-semibold text-gray-600">{`${common.stepLabel} ${currentStepIndex + 1} / ${totalSteps}`}</h2>
-           </div>
-           <div className="flex items-center gap-2">
-             <button
                onClick={triggerImportJson}
                className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
              >
                {common.loadJson}
              </button>
-             <button onClick={handleReset} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wide">
+             <button
+               onClick={handleReset}
+               className="text-xs font-bold text-red-600 border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 uppercase tracking-wide"
+             >
                {common.clearAll}
              </button>
-           </div>
-        </div>
-      </header>
+         </div>
+       </div>
+     </div>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 pb-32">
         <input
@@ -1067,12 +1559,30 @@ function App() {
           founderDataConsent={founderDataConsent}
           onToggleDataConsent={setFounderDataConsent}
         />
-        <StepIndicator
-          steps={visibleSteps}
-          currentStep={step}
-          isStepAvailable={stepAvailability}
-          onStepSelect={setStep}
+        <GuidedTour
+          open={isTourOpen}
+          steps={tourSteps}
+          currentIndex={tourStepIndex}
+          onClose={closeTour}
+          onNext={handleTourNext}
+          onPrev={handleTourPrev}
+          labels={{
+            next: t.tour.controls.next,
+            prev: t.tour.controls.prev,
+            finish: t.tour.controls.finish,
+            close: t.tour.controls.close,
+            stepLabel: t.common.stepLabel,
+            demoNote: t.tour.controls.demoNote
+          }}
         />
+        <div data-tour-id="tour-step-indicator">
+          <StepIndicator
+            steps={visibleSteps}
+            currentStep={step}
+            isStepAvailable={stepAvailability}
+            onStepSelect={setStep}
+          />
+        </div>
         
         {/* Error Message */}
         {errorMsg && (
@@ -1084,11 +1594,18 @@ function App() {
 
         {/* STEP 1: PUBLIC INFO */}
         {step === WizardStep.PUBLIC_INFO && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up" data-tour-id="tour-public-info">
             <div className="flex justify-between items-start gap-2">
               <div>
                 <h2 className="text-2xl font-bold mb-1">{t.publicInfo.title}</h2>
                 </div>
+              <button
+                onClick={startTour}
+                disabled={isTourOpen}
+                className="text-xs font-semibold text-purple-700 border border-purple-200 px-3 py-2 rounded-lg hover:bg-purple-50 disabled:opacity-50"
+              >
+                {t.tour.start}
+              </button>
             </div>
 
             <div className="mb-6">
@@ -1104,7 +1621,7 @@ function App() {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
               {/* Option A: URL */}
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-5">
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-5" data-tour-id="tour-fetch-url">
                  <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
                    {t.publicInfo.optionA.title}
@@ -1161,6 +1678,7 @@ function App() {
                   onClick={generateBaseline}
                   disabled={status === AppStatus.PROCESSING || !hasFetchedPublicInfo}
                   className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50"
+                  data-tour-id="tour-generate-baseline"
                 >
                   {status === AppStatus.PROCESSING 
                     ? t.publicInfo.buttons.analyze
@@ -1171,7 +1689,7 @@ function App() {
               </div>
 
               {baselineStatement && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4" data-tour-id="tour-baseline-preview">
                   <h3 className="text-lg font-bold text-gray-800 mb-2">{t.publicInfo.preview.title}</h3>
                   <div className="space-y-4 text-sm text-gray-800">
                     <div>
@@ -1211,7 +1729,7 @@ function App() {
 
         {/* STEP 2: FOUNDER INPUT (STRUCTURED) */}
         {step === WizardStep.FOUNDER_INPUT && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up" data-tour-id="tour-founder-input">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
             <div>
               <h2 className="text-2xl font-bold mb-2">{t.founder.title}</h2>
@@ -1222,6 +1740,7 @@ function App() {
                 type="button"
                 onClick={() => setIsConsentOpen(true)}
                 className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-emerald-700"
+                data-tour-id="tour-consent"
               >
                 {t.founder.consent}
               </button>
@@ -1421,28 +1940,30 @@ function App() {
       )}
         {/* STEP 3: BASELINE REVIEW */}
         {step === WizardStep.BASELINE_REVIEW && baselineStatement && (
-          <BaselineReview 
-            baseline={baselineStatement}
-            onUpdate={(updated) => {
-              setBaselineStatement(updated);
-              // Invalidate Comparison since Baseline changed
-              setComparisonRows([]);
-            }}
-            onNext={confirmBaseline}
-            onBack={() => setStep(WizardStep.FOUNDER_INPUT)}
-          />
+          <div data-tour-id="tour-baseline-review">
+            <BaselineReview 
+              baseline={baselineStatement}
+              onUpdate={(updated) => {
+                setBaselineStatement(updated);
+                // Invalidate Comparison since Baseline changed
+                setComparisonRows([]);
+              }}
+              onNext={confirmBaseline}
+              onBack={() => setStep(WizardStep.FOUNDER_INPUT)}
+            />
+          </div>
         )}
 
         {/* STEP 4: TRANSCRIPT UPLOAD & SPLIT */}
         {step === WizardStep.TRANSCRIPT_UPLOAD && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-tour-id="tour-transcript-upload">
             {!splitData ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
                 <h2 className="text-2xl font-bold mb-2">{t.transcript.title}</h2>
                 <p className="text-gray-500 mb-6 text-sm">{t.transcript.description}</p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4" data-tour-id="tour-transcript-audio">
                     <h3 className="font-bold text-blue-900 mb-1">{t.transcript.uploadAudioTitle}</h3>
                     <p className="text-xs text-blue-900 mb-3">{t.transcript.uploadAudioHelp}</p>
                     <input
@@ -1465,7 +1986,7 @@ function App() {
                     )}
                   </div>
 
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4" data-tour-id="tour-transcript-text">
                     <h3 className="font-bold text-gray-800 mb-1">{t.transcript.transcriptTitle}</h3>
                     <p className="text-xs text-gray-600 mb-3">{t.transcript.transcriptHelp}</p>
                     <input
@@ -1489,6 +2010,7 @@ function App() {
                   placeholder={t.transcript.transcriptPlaceholder}
                   value={transcript}
                   onChange={(e) => handleTranscriptChange(e.target.value)}
+                  data-tour-id="tour-transcript-editor"
                 />
                 <div className="flex justify-between">
                   <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.transcript.back}</button>
@@ -1496,6 +2018,7 @@ function App() {
                     onClick={startSplit}
                     disabled={status === AppStatus.PROCESSING || !transcript || isTranscribingAudio}
                     className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50"
+                    data-tour-id="tour-transcript-split"
                   >
                     {status === AppStatus.PROCESSING || isTranscribingAudio ? statuses.processing : t.transcript.split}
                   </button>
