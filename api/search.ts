@@ -48,10 +48,10 @@ const looksLikeTarget = (
   ];
 
   if (targetDomain) {
-    if (mentionsDomainInHtml) return true;
-    if (haystacks.some((h) => h.includes(targetDomain))) return true;
     const hostIsSimilar = host ? host.replace(/^www\./, '').includes(targetDomain) : false;
-    if (hostIsSimilar) return true;
+    const mentionsDomain = mentionsDomainInHtml || haystacks.some((h) => h.includes(targetDomain)) || hostIsSimilar;
+    if (!mentionsDomain) return false; // if domain not mentioned anywhere, drop it
+    return true;
   }
 
   if (brandTokens.length > 0 && haystacks.some((h) => brandTokens.some((t) => h.includes(t)))) return true;

@@ -31,7 +31,7 @@ const languageMessages = (locale: LocaleOption) => locale === 'zh'
   ? [{
       role: 'system' as const,
       content:
-        '请用简体中文回答所有输出。使用符合中文习惯的短句，避免直译腔与堆砌定语。确保每条表述简洁流畅、自然可读。'
+        '请用简体中文回答所有输出。使用符合中文习惯的短句，避免直译腔与堆砌定语。确保每条表述简洁流畅、自然可读。请使用自然、地道、符合母语者习惯的现代中文表达，句式以常见主谓结构为主，避免英文直译的长定语和悬空状语。风格偏书面但简洁；如为列表，保持语法结构一致、用词统一。'
     }]
   : [{ role: 'system' as const, content: 'Respond in English.' }];
 
@@ -42,7 +42,7 @@ const localeToLanguageCode = (locale: LocaleOption): string => {
 
 const languageHint = (locale: LocaleOption) =>
   locale === 'zh'
-    ? '\n\n请将所有输出内容（含要点、摘要和示例）用简体中文撰写，保持口语化、通顺，避免生硬直译与长定语堆叠，可拆成两个短句。'
+    ? '\n\n请将所有输出内容（含要点、摘要和示例）用简体中文撰写，保持自然、地道、简洁。使用主谓结构，避免直译腔和长定语，可拆成短句。列表请统一语法和用词。'
     : '\n\nPlease respond in English.';
 
 const extractMessageText = (content: any): string => {
