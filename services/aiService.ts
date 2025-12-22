@@ -25,6 +25,25 @@ const openai = new OpenAI({
 });
 
 type JsonSchema = Record<string, any>;
+type LocaleOption = 'en' | 'zh';
+
+const languageMessages = (locale: LocaleOption) => locale === 'zh'
+  ? [{
+      role: 'system' as const,
+      content:
+        '请用简体中文回答所有输出。使用符合中文习惯的短句，避免直译腔与堆砌定语。确保每条表述简洁流畅、自然可读。'
+    }]
+  : [{ role: 'system' as const, content: 'Respond in English.' }];
+
+const localeToLanguageCode = (locale: LocaleOption): string => {
+  if (locale === 'zh') return 'cmn'; // Mandarin Chinese
+  return 'eng';
+};
+
+const languageHint = (locale: LocaleOption) =>
+  locale === 'zh'
+    ? '\n\n请将所有输出内容（含要点、摘要和示例）用简体中文撰写，保持口语化、通顺，避免生硬直译与长定语堆叠，可拆成两个短句。'
+    : '\n\nPlease respond in English.';
 
 const extractMessageText = (content: any): string => {
   if (!content) return '';
@@ -312,7 +331,7 @@ const downsampleToMonoWav = async (file: File, targetSampleRate = 16000): Promis
   return new Blob([buffer], { type: 'audio/wav' });
 };
 
-export const transcribeAudioWithDiarization = async (file: File): Promise<TranscriptionResult> => {
+export const transcribeAudioWithDiarization = async (file: File, locale: LocaleOption = 'en'): Promise<TranscriptionResult> => {
   const toBase64 = (f: Blob) =>
     new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -342,7 +361,7 @@ export const transcribeAudioWithDiarization = async (file: File): Promise<Transc
   const resp = await fetch('/api/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ ...payload, languageCode: localeToLanguageCode(locale) })
   });
 
   if (!resp.ok) {
@@ -496,7 +515,7 @@ export const fetchPublicInfoFromUrl = async (url: string): Promise<string> => {
   return sections.join('\n\n').trim();
 };
 
-export const splitTranscript = async (fullTranscript: string): Promise<TranscriptSplit> => {
+export const splitTranscript = async (fullTranscript: string, locale: LocaleOption = 'en'): Promise<TranscriptSplit> => {
   const lines = fullTranscript.split('\n');
   const numberedTranscript = lines.map((line, idx) => {
     const hex = (0x1000 + idx).toString(16).toUpperCase().slice(-4); // 4 hex digits
@@ -505,8 +524,9 @@ export const splitTranscript = async (fullTranscript: string): Promise<Transcrip
 
   return callJsonSchema<any>(
     [
-      { role: 'user', content: SPLIT_PROMPT },
-      { role: 'user', content: `FULL TRANSCRIPT (numbered):\n\n${numberedTranscript}` }
+      ...languageMessages(locale),
+      { role: 'system', content: SPLIT_PROMPT },
+      { role: 'user', content: `FULL TRANSCRIPT (numbered):\n\n${numberedTranscript}${languageHint(locale)}` }
     ],
     "split_transcript_schema",
     splitSchema,
@@ -534,12 +554,14 @@ export const splitTranscript = async (fullTranscript: string): Promise<Transcrip
 export const analyzeSegment = async (
   transcriptSegment: string, 
   publicInfo: string,
-  founderInput: string
+  founderInput: string,
+  locale: LocaleOption = 'en'
 ): Promise<AIAnalysisResponse> => {
   return callJsonSchema<AIAnalysisResponse>(
     [
-      { role: 'user', content: ANALYSIS_PROMPT },
-      { role: 'user', content: `FOUNDER'S PRIOR STATEMENT:\n${founderInput}\n\nPUBLIC CONTEXT (Truth Source):\n${publicInfo || "No public context provided."}\n\nTRANSCRIPT SEGMENT:\n${transcriptSegment}` }
+      ...languageMessages(locale),
+      { role: 'system', content: ANALYSIS_PROMPT },
+      { role: 'user', content: `FOUNDER'S PRIOR STATEMENT:\n${founderInput}\n\nPUBLIC CONTEXT (Truth Source):\n${publicInfo || "No public context provided."}\n\nTRANSCRIPT SEGMENT:\n${transcriptSegment}${languageHint(locale)}` }
     ],
     "analysis_schema",
     analysisSchema,
@@ -548,12 +570,14 @@ export const analyzeSegment = async (
 };
 
 export const generateBaselineStatement = async (
-  publicInfo: string
+  publicInfo: string,
+  locale: LocaleOption = 'en'
 ): Promise<BaselineStatement> => {
   return callJsonSchema<BaselineStatement>(
     [
-      { role: 'user', content: BASELINE_PROMPT },
-      { role: 'user', content: `SOURCE MATERIAL:\n${publicInfo}` }
+      ...languageMessages(locale),
+      { role: 'system', content: BASELINE_PROMPT },
+      { role: 'user', content: `SOURCE MATERIAL:\n${publicInfo}${languageHint(locale)}` }
     ],
     "baseline_schema",
     baselineSchema,
@@ -563,13 +587,15 @@ export const generateBaselineStatement = async (
 
 export const selectTopBarriers = async (
   baseline: BaselineStatement,
-  publicInfo: string
+  publicInfo: string,
+  locale: LocaleOption = 'en'
 ): Promise<string[]> => {
   const baselineStr = JSON.stringify(baseline, null, 2);
   const res = await callJsonSchema<{ SPECIFIC_BARRIERS: string[] }>(
     [
-      { role: 'user', content: BARRIER_SELECTOR_PROMPT },
-      { role: 'user', content: `BASELINE STATEMENT:\n${baselineStr}\n\nSOURCE MATERIAL:\n${publicInfo || "No public context provided."}` }
+      ...languageMessages(locale),
+      { role: 'system', content: BARRIER_SELECTOR_PROMPT },
+      { role: 'user', content: `BASELINE STATEMENT:\n${baselineStr}\n\nSOURCE MATERIAL:\n${publicInfo || "No public context provided."}${languageHint(locale)}` }
     ],
     "barrier_selector_schema",
     barrierSelectorSchema,
@@ -581,13 +607,15 @@ export const selectTopBarriers = async (
 export const generateComparison = async (
   baseline: BaselineStatement,
   transcriptPart2: string,
-  publicInfo: string
+  publicInfo: string,
+  locale: LocaleOption = 'en'
 ): Promise<ComparisonResult> => {
   const baselineStr = JSON.stringify(baseline, null, 2);
   return callJsonSchema<ComparisonResult>(
     [
-      { role: 'user', content: COMPARISON_PROMPT_TEXT },
-      { role: 'user', content: `BASELINE STATEMENT:\n${baselineStr}\n\nPUBLIC INFO:\n${publicInfo}\n\nTRANSCRIPT PART 2 (FEEDBACK):\n${transcriptPart2}` }
+      ...languageMessages(locale),
+      { role: 'system', content: COMPARISON_PROMPT_TEXT },
+      { role: 'user', content: `BASELINE STATEMENT:\n${baselineStr}\n\nPUBLIC INFO:\n${publicInfo}\n\nTRANSCRIPT PART 2 (FEEDBACK):\n${transcriptPart2}${languageHint(locale)}` }
     ],
     "comparison_schema",
     comparisonSchema,
@@ -597,13 +625,15 @@ export const generateComparison = async (
 
 export const checkPublicSupportForItems = async (
   items: SupportCheckItem[],
-  publicInfo: string
+  publicInfo: string,
+  locale: LocaleOption = 'en'
 ): Promise<SupportCheckItem[]> => {
   const payload = items.map((item, idx) => `${idx + 1}. [${item.type}] id=${item.id} :: ${item.text}`).join('\n');
   const res = await callJsonSchema<{ items: SupportCheckItem[] }>(
     [
-      { role: 'user', content: SUPPORT_CHECK_PROMPT },
-      { role: 'user', content: `PUBLIC INFO (truth source):\n${publicInfo || "No public info provided."}\n\nITEMS TO VERIFY:\n${payload}` }
+      ...languageMessages(locale),
+      { role: 'system', content: SUPPORT_CHECK_PROMPT },
+      { role: 'user', content: `PUBLIC INFO (truth source):\n${publicInfo || "No public info provided."}\n\nITEMS TO VERIFY:\n${payload}${languageHint(locale)}` }
     ],
     "support_check_schema",
     supportCheckSchema,
@@ -613,7 +643,8 @@ export const checkPublicSupportForItems = async (
 };
 
 export const extractComponentEvidence = async (
-  transcriptPart2: string
+  transcriptPart2: string,
+  locale: LocaleOption = 'en'
 ) => {
   const lines = transcriptPart2.split('\n');
   const numbered = lines.map((line, idx) => {
@@ -623,8 +654,9 @@ export const extractComponentEvidence = async (
 
   const res = await callJsonSchema<any>(
     [
-      { role: 'user', content: COMPONENT_EVIDENCE_PROMPT },
-      { role: 'user', content: `TRANSCRIPT PART 2 (hex-numbered):\n${numbered}` }
+      ...languageMessages(locale),
+      { role: 'system', content: COMPONENT_EVIDENCE_PROMPT },
+      { role: 'user', content: `TRANSCRIPT PART 2 (hex-numbered):\n${numbered}${languageHint(locale)}` }
     ],
     "component_evidence_schema",
     componentEvidenceSchema,

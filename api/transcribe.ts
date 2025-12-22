@@ -93,7 +93,7 @@ const guessMime = (name: string) => {
   return 'audio/ogg';
 };
 
-const transcribeBuffer = async (buffer: Buffer, fileName: string, modelId: string, mimeType?: string) => {
+const transcribeBuffer = async (buffer: Buffer, fileName: string, modelId: string, languageCode: string, mimeType?: string) => {
   const blob = new Blob([buffer], { type: mimeType || guessMime(fileName) });
 
   const response: any = await client.speechToText.convert({
@@ -101,7 +101,7 @@ const transcribeBuffer = async (buffer: Buffer, fileName: string, modelId: strin
     modelId,
     diarize: DIARIZE,
     tagAudioEvents: TAG_AUDIO_EVENTS,
-    languageCode: LANGUAGE_CODE,
+    languageCode,
   });
 
   const diarizedText = buildDiarized(response);
@@ -130,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { fileData, fileUrl, fileName = 'audio.webm', modelId = MODEL_ID, mimeType } = req.body || {};
+    const { fileData, fileUrl, fileName = 'audio.webm', modelId = MODEL_ID, languageCode, mimeType } = req.body || {};
 
     let buffer: Buffer | null = null;
 
@@ -149,7 +149,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!buffer.length) return res.status(400).json({ error: 'Decoded audio is empty.' });
 
     // Send as-is (no server-side compression or size cap)
-    const result = await transcribeBuffer(buffer, fileName, modelId, mimeType || guessMime(fileName));
+    const result = await transcribeBuffer(
+      buffer,
+      fileName,
+      modelId,
+      languageCode || LANGUAGE_CODE,
+      mimeType || guessMime(fileName)
+    );
     return res.status(200).json(result);
   } catch (err: any) {
     console.error('Transcribe API error:', err);

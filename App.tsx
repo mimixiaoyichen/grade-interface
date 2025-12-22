@@ -354,6 +354,7 @@ function App() {
   const [baselineGenerated, setBaselineGenerated] = useState<BaselineStatement | null>(null);
   const [baselineLLM, setBaselineLLM] = useState<BaselineStatement | null>(null);
   const [baselineSource, setBaselineSource] = useState<string>('');
+  const [baselineLocale, setBaselineLocale] = useState<LocaleKey>('en');
 
   // Step 4: Transcript Part 1
   const [transcript, setTranscript] = useState<string>('');
@@ -746,7 +747,7 @@ function App() {
         ? file
         : new File([file], 'recording.webm', { type: (file as any)?.type || 'audio/webm' });
       setTranscriptionStatus(statuses.processingDiarization);
-      const result = await transcribeAudioWithDiarization(baseFile);
+      const result = await transcribeAudioWithDiarization(baseFile, locale);
       const diarizedText = (result.diarizedText || result.text || '').trim();
       setTranscript(diarizedText);
       setDiarizedPreview(diarizedText);
@@ -852,7 +853,7 @@ function App() {
     if (!hasFetchedPublicInfo) return setErrorMsg(errors.fetchPublicInfoFirst);
 
     // If we already generated from this exact public info, just continue without re-calling the model
-    if (baselineStatement && baselineSource === trimmedPublicInfo) {
+    if (baselineStatement && baselineSource === trimmedPublicInfo && baselineLocale === locale) {
       setErrorMsg('');
       setStatus(AppStatus.SUCCESS);
       return;
@@ -861,11 +862,11 @@ function App() {
     setStatus(AppStatus.PROCESSING);
     setErrorMsg('');
     try {
-      const res = await generateBaselineStatement(trimmedPublicInfo);
+      const res = await generateBaselineStatement(trimmedPublicInfo, locale);
       let refinedBarriers = res.SPECIFIC_BARRIERS || [];
 
       try {
-        const selected = await selectTopBarriers(res, trimmedPublicInfo);
+        const selected = await selectTopBarriers(res, trimmedPublicInfo, locale);
         if (selected && selected.length) {
           refinedBarriers = selected;
         }
@@ -878,6 +879,7 @@ function App() {
       setBaselineGenerated({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
       setBaselineLLM({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
       setBaselineSource(trimmedPublicInfo);
+      setBaselineLocale(locale);
       // Clear downstream data that depends on baseline
       setComparisonRows([]); 
       setSupportByRow({});
@@ -914,7 +916,7 @@ function App() {
     if (!transcript.trim()) return setErrorMsg(errors.transcriptRequired);
     setStatus(AppStatus.PROCESSING);
     try {
-      const res = await splitTranscript(transcript);
+      const res = await splitTranscript(transcript, locale);
       setSplitData(res);
       // Invalidate downstream
       setPart1Result(null);
@@ -958,9 +960,9 @@ function App() {
       `;
 
       const combinedInfo = getCombinedPublicInfo();
-      const analysisPromise = analyzeSegment(p1, combinedInfo, founderContextString);
-      const comparisonPromise = generateComparison(baselineStatement, p2, combinedInfo);
-      const evidencePromise = extractComponentEvidence(p2);
+      const analysisPromise = analyzeSegment(p1, combinedInfo, founderContextString, locale);
+      const comparisonPromise = generateComparison(baselineStatement, p2, combinedInfo, locale);
+      const evidencePromise = extractComponentEvidence(p2, locale);
 
       const [analysisResult, comparisonResult, evidenceResult] = await Promise.allSettled([
         analysisPromise,
@@ -1182,6 +1184,7 @@ function App() {
     setBaselineLLM(llmBaseline);
     setBaselineGenerated(llmBaseline);
     setBaselineStatement(founderBaseline || llmBaseline || importedFounderInput);
+    setBaselineLocale(locale);
     setIsStatementOpen(true);
 
     setFounderInput(importedFounderInput);
@@ -1399,7 +1402,7 @@ function App() {
     setSupportByRow((prev) => ({ ...prev, [rowId]: { ...prev[rowId], loading: true } }));
     setErrorMsg('');
     try {
-      const results = await checkPublicSupportForItems(items, combinedInfo);
+      const results = await checkPublicSupportForItems(items, combinedInfo, locale);
       const applyResults = (list: SupportCheckItem[]) =>
         list.map((item) => {
           const match = results.find((r) => r.id === item.id);
@@ -1608,17 +1611,6 @@ function App() {
               </button>
             </div>
 
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-gray-700 mb-2">{t.publicInfo.pitchbookLabel}</label>
-              <textarea
-                className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y text-sm mb-2 font-mono bg-gray-50"
-                placeholder={t.publicInfo.pitchbookPlaceholder}
-                value={pitchbookInfo}
-                onChange={(e) => setPitchbookInfo(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">{t.publicInfo.pitchbookHint}</p>
-            </div>
-            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
               {/* Option A: URL */}
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-5" data-tour-id="tour-fetch-url">
@@ -1751,7 +1743,7 @@ function App() {
             {/* Introduction */}
             <div className="space-y-3">
               <div className="flex items-start justify-between">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   {t.founder.labels.introduction}
                 </label>
 
@@ -1766,7 +1758,7 @@ function App() {
             {/* Solution */}
             <div className="space-y-3">
               <div className="flex items-start justify-between">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   {t.founder.labels.solution}
                 </label>
 
@@ -1789,7 +1781,7 @@ function App() {
             {/* Customer Segment */}
             <div className="space-y-3">
               <div className="flex items-start justify-between">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   {t.founder.labels.customer}
                 </label>
 
@@ -1812,7 +1804,7 @@ function App() {
             {/* Context */}
             <div className="space-y-3">
               <div className="flex items-start justify-between">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   {t.founder.labels.context}
                 </label>
 
@@ -1835,7 +1827,7 @@ function App() {
             {/* Goal / Job */}
             <div className="space-y-3">
               <div className="flex items-start justify-between">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   {t.founder.labels.goal}
                 </label>
 
@@ -1858,7 +1850,7 @@ function App() {
             {/* Barriers */}
             <div className="space-y-3">
               <div className="flex items-start justify-between">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   {t.founder.labels.barriers}
                 </label>
 
