@@ -36,7 +36,7 @@ const languageMessages = (locale: LocaleOption) => locale === 'zh'
   : [{ role: 'system' as const, content: 'Respond in English.' }];
 
 const localeToLanguageCode = (locale: LocaleOption): string => {
-  if (locale === 'zh') return 'cmn'; // Mandarin Chinese
+  if (locale === 'zh') return 'cn'; // Mandarin Chinese
   return 'eng';
 };
 
