@@ -26,12 +26,6 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
     Goal: text.groups.goal,
     Barrier: text.groups.barrier
   };
-  const typeLabels: Record<ComparisonRow['type'], string> = {
-    Modification: text.types.Modification,
-    Omission: text.types.Omission,
-    Hallucination: text.types.Hallucination,
-    Confirmation: text.types.Confirmation
-  };
   const evidenceRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const highlightRefs = useRef<Record<string, HTMLMarkElement | null>>({});
 
@@ -115,16 +109,6 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
     );
   };
 
-  const getBadgeColor = (type: string) => {
-    switch (type) {
-      case 'Modification': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Omission': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'Hallucination': return 'bg-red-100 text-red-800 border-red-200';
-      case 'Confirmation': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const renderGroup = (component: string) => {
     const groupRows = rows.filter(r => r.component === component);
     if (groupRows.length === 0) return null;
@@ -201,11 +185,6 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
                     <div className="text-[10px] uppercase text-gray-400 font-semibold">{text.labels.llmGenerated}</div>
                     <div>{row.baselineText || <span className="italic text-gray-300">--</span>}</div>
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getBadgeColor(row.type)} uppercase`}>
-                          {typeLabels[row.type]}
-                        </span>
-                      </div>
                       <div className="border border-gray-200 rounded-lg p-2 bg-white shadow-inner">
                         <textarea
                           value={row.reviewerEdit ?? row.transcriptModification}

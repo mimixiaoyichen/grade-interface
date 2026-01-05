@@ -709,6 +709,13 @@ function App() {
 
   const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+  const normalizeSpeakerLabel = (raw: string, idx = 0) => {
+    const base = (raw || '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const dropSpeaker = base.replace(/^speaker\s*/i, '').replace(/^speaker\s*/i, '').trim();
+    const fallback = dropSpeaker || `${idx + 1}`;
+    return `Speaker ${fallback.replace(/^Speaker\s*/i, '').trim()}`;
+  };
+
   const applySpeakerMapping = (text: string, mapping: Record<string, string>) => {
     let updated = text;
     Object.entries(mapping).forEach(([label, replacement]) => {
@@ -762,7 +769,8 @@ function App() {
           if (s !== undefined && s !== null) labelsFromWords.add(`Speaker ${s}`);
         });
       }
-      const labels = Array.from(new Set<string>([...labelsFromText, ...Array.from(labelsFromWords)]));
+      const rawLabels = Array.from(new Set<string>([...labelsFromText, ...Array.from(labelsFromWords)]));
+      const labels = rawLabels.map((l, idx) => normalizeSpeakerLabel(l, idx));
       if (labels.length) {
         const initialMap: Record<string, string> = {};
         labels.forEach((l) => { initialMap[l] = ''; });
@@ -1525,6 +1533,12 @@ function App() {
                {common.loadJson}
              </button>
              <button
+               onClick={handleExportJson}
+               className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
+             >
+               {common.downloadJson}
+             </button>
+             <button
                onClick={handleReset}
                className="text-xs font-bold text-red-600 border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 uppercase tracking-wide"
              >
@@ -1869,7 +1883,7 @@ function App() {
                         ""
                       ])
                     }
-                    className="text-xs text-purple-600 hover:underline font-bold"
+                    className="text-xs text-purple-600 hover:underline font-bold whitespace-nowrap"
                   >
                     {t.founder.addBarrier}
                   </button>

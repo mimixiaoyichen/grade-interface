@@ -35,9 +35,10 @@ const languageMessages = (locale: LocaleOption) => locale === 'zh'
     }]
   : [{ role: 'system' as const, content: 'Respond in English.' }];
 
-const localeToLanguageCode = (locale: LocaleOption): string => {
-  if (locale === 'zh') return 'cn'; // Mandarin Chinese
-  return 'eng';
+const localeToLanguageCode = (locale: LocaleOption): string | undefined => {
+  if (locale === 'zh') return 'zho'; // Mandarin Chinese (per API list)
+  if (locale === 'en') return 'eng';
+  return undefined;
 };
 
 const languageHint = (locale: LocaleOption) =>
@@ -349,6 +350,7 @@ export const transcribeAudioWithDiarization = async (file: File, locale: LocaleO
   }
 
   let payload: any = {};
+  const languageCode = localeToLanguageCode(locale);
   const sizeMb = blob.size / (1024 * 1024);
   if (sizeMb > 4) {
     const blobUrl = await uploadFileToBlob(file);
@@ -361,7 +363,10 @@ export const transcribeAudioWithDiarization = async (file: File, locale: LocaleO
   const resp = await fetch('/api/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, languageCode: localeToLanguageCode(locale) })
+    body: JSON.stringify({
+      ...payload,
+      ...(languageCode ? { languageCode } : {})
+    })
   });
 
   if (!resp.ok) {
@@ -481,21 +486,29 @@ export const fetchPublicInfoFromUrl = async (url: string): Promise<string> => {
 
   const sections: string[] = [];
   let searchTerm = target;
+  let pageFetchWarning = '';
 
   if (looksLikeUrl) {
     const normalizedUrl = target.startsWith('http') ? target : `https://${target}`;
-    const resp = await fetch(`/api/fetch?url=${encodeURIComponent(normalizedUrl)}`);
-    if (!resp.ok) {
-      throw new Error(`Failed to fetch URL: ${resp.status} ${resp.statusText}`);
-    }
-    const data = await parseJsonSafe(resp);
-    sections.push(`${data.summary}\n\n==========================================\n=== VERBATIM PAGE CONTENT (Cleaned) ===\n==========================================\n\n${data.cleaned}`);
-
     try {
-      const host = new URL(normalizedUrl).hostname.replace(/^www\./, '');
-      if (host) searchTerm = host;
-    } catch {
-      searchTerm = target;
+      const resp = await fetch(`/api/fetch?url=${encodeURIComponent(normalizedUrl)}`);
+      if (!resp.ok) {
+        const snippet = await resp.text().then((t) => t.slice(0, 200)).catch(() => '');
+        pageFetchWarning = `Unable to reach ${normalizedUrl}. Please confirm the link is correct or reachable.`;
+        sections.push(`[Page fetch failed: ${resp.status} ${resp.statusText}${snippet ? ` — ${snippet}` : ''}]`);
+      } else {
+        const data = await parseJsonSafe(resp);
+        sections.push(`${data.summary}\n\n==========================================\n=== VERBATIM PAGE CONTENT (Cleaned) ===\n==========================================\n\n${data.cleaned}`);
+        try {
+          const host = new URL(normalizedUrl).hostname.replace(/^www\./, '');
+          if (host) searchTerm = host;
+        } catch {
+          searchTerm = target;
+        }
+      }
+    } catch (err: any) {
+      pageFetchWarning = `Unable to reach ${normalizedUrl}. Please confirm the link is correct or reachable. (${err?.message || err})`;
+      sections.push(`[Page fetch failed: ${err?.message || err}]`);
     }
   }
 
@@ -512,7 +525,11 @@ export const fetchPublicInfoFromUrl = async (url: string): Promise<string> => {
     }
   }
 
-  return sections.join('\n\n').trim();
+  const output = sections.join('\n\n').trim();
+  if (pageFetchWarning && typeof window !== 'undefined') {
+    window.alert(pageFetchWarning);
+  }
+  return output;
 };
 
 export const splitTranscript = async (fullTranscript: string, locale: LocaleOption = 'en'): Promise<TranscriptSplit> => {

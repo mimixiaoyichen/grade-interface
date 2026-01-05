@@ -188,6 +188,7 @@ Transitory wording between part 1 & part 2:
       title: '3. Review LLM-Generated Statement',
       description: 'This statement was generated from Public Information. Review and edit it before comparing it to the transcript.',
       draft: 'Draft Mode',
+      script: `Moving on to the next part of this interview, we’d like your reaction to a problem statement, similar to the one we just generated together, developed for your startup by an LLM using public information. Please evaluate how accurately the LLM generated problem statement is relative to publicly available information and how you would change the statement.`,
       labels: {
         solution: 'Solution',
         customer: 'Customer Segment',
@@ -661,6 +662,7 @@ Transitory wording between part 1 & part 2:
       title: '3. 审核 LLM 生成的陈述',
       description: '此陈述基于公开信息生成。在与访谈记录对比前请先查看并编辑。',
       draft: '草稿模式',
+      script: '进入访谈的下一部分，我们想听你对一个问题陈述的反馈。这个陈述由 LLM 基于公开信息为你的创业公司生成，和我们刚才一起写的类似。请评价它与公开信息的吻合程度，以及你会如何修改它。',
       labels: {
         solution: '解决方案',
         customer: '客户细分',

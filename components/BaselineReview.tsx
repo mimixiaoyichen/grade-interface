@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BaselineStatement } from '../types';
 import { useT } from '../utils/strings';
 
@@ -10,9 +10,42 @@ interface BaselineReviewProps {
   onBack: () => void;
 }
 
+const ScriptDropdown: React.FC<{ title?: string; children: React.ReactNode }> = ({ title, children }) => {
+  const { common } = useT();
+  const resolvedTitle = title || common.viewScript;
+  return (
+    <details className="group min-w-[140px]">
+      <summary className="list-none cursor-pointer select-none text-xs text-gray-600 flex items-center gap-2 justify-end px-2 py-1 border border-gray-200 rounded-lg bg-white shadow-sm">
+        <span className="font-semibold">{resolvedTitle}</span>
+        <svg
+          className="w-4 h-4 transform transition-transform duration-150 group-open:rotate-180"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 011.14.98l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </summary>
+      <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700 whitespace-pre-line shadow-sm">
+        {children}
+      </div>
+    </details>
+  );
+};
+
 const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onNext, onBack }) => {
   const [data, setData] = useState<BaselineStatement>(baseline);
   const t = useT().baselineReview;
+  const common = useT().common;
+
+  useEffect(() => {
+    setData(baseline);
+  }, [baseline]);
 
   const handleChange = (field: keyof BaselineStatement, value: string | string[]) => {
     const newData = { ...data, [field]: value };
@@ -37,13 +70,18 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 animate-fade-in-up">
-      <div className="mb-6 border-b border-gray-200 pb-4 flex justify-between items-start">
+      <div className="mb-6 border-b border-gray-200 pb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
            <h2 className="text-2xl font-bold text-gray-800">{t.title}</h2>
            <p className="text-gray-500 mt-1">{t.description}</p>
         </div>
-        <div className="bg-blue-50 text-blue-800 px-3 py-1 rounded text-xs font-bold uppercase tracking-wide">
-          {t.draft}
+        <div className="flex items-center gap-2">
+          <ScriptDropdown title={common.viewScript}>
+            {t.script}
+          </ScriptDropdown>
+          <div className="bg-blue-50 text-blue-800 px-3 py-1 rounded text-xs font-bold uppercase tracking-wide">
+            {t.draft}
+          </div>
         </div>
       </div>
 
