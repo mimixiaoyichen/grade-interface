@@ -885,7 +885,9 @@ function App() {
                   <div className="text-sm text-gray-600 whitespace-pre-line">
             {`
             Overview:
-            “Hi [Name], thank you for joining today. I’m [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We’re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. With your permission, I’d like to record the conversation so that we can capture your responses accurately. Is that okay?”  
+            “Hi [Name], thank you for joining today. I’m [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We’re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. Do you have any questions before we begin?
+            
+            With your permission, I’d like to record the conversation so that we can capture your responses accurately. Is that okay?”  
             
             If yes, begin recording. If no, interviewer is expected to take detailed notes.  
 
@@ -908,7 +910,9 @@ function App() {
 
             5. Barriers means what prevents your customers from reaching their goals without your help.  
 
-            We will only focus on your perspective as the founder. However, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
+            In the second part of this interview, we would like to show you a problem statement, similar to the one we just generated, that was developed by a Large Language Model for your company based on public information. We will ask for your feedback on this statement and how you would revise it based on your perspective as the founder.
+
+            Lastly, for this conversation, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
  
             `}
                   </div>
@@ -927,7 +931,7 @@ function App() {
                   <div className="text-sm text-gray-600 whitespace-pre-line">
       {`
       Lead Question (read verbatim):
-      “Let’s begin with what you’ve built. How would you describe your product or solution? Please describe it  based on information that is publicly available on your startup.”   
+      “Let’s begin with what you’ve built. How would you describe your product or solution?”   
       
       Smooth Transition: “Thank you—that helps set the stage. Now let’s move on to the next variable. I’d like to understand who your customers are.”
  `}
