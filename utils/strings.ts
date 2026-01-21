@@ -110,33 +110,37 @@ export const translations = {
       continue: 'Continue →',
       scripts: {
         introduction: `Overview:
-“Hi [Name], thank you for joining today. I’m [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We’re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. With your permission, I’d like to record the conversation so that we can capture your responses accurately. Is that okay?”  
-        
-If yes, begin recording. If no, interviewer is expected to take detailed notes.  
+“Hi [Name], thank you for joining today. I’m [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We’re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. Do you have any questions before we begin?
+
+With your permission, I’d like to record the conversation so that we can capture your responses accurately. Is that okay?”
+
+If yes, begin recording. If no, interviewer is expected to take detailed notes.
 
 Then set expectations:
-“I’ll ask a series of open‑ended questions. There are no right or wrong answers—we want to understand your perspective in your own words. This will take about 20 minutes.”  
+“I’ll ask a series of open‑ended questions. There are no right or wrong answers—we want to understand your perspective in your own words. This will take about 20 minutes.”
 
-Briefly describe the problem statement framework using the following scripted introduction (read verbatim):  
+Briefly describe the problem statement framework using the following scripted introduction (read verbatim):
 
-“Before we dive into the specific questions, I want to quickly explain the structure we’ll use. We follow a simple framework to construct a problem statement of your company. Our goal is to understand the problem your company solves from the customer’s point of view.  
+“Before we dive into the specific questions, I want to quickly explain the structure we’ll use. We follow a simple framework to construct a problem statement of your company. Our goal is to understand the problem your company solves from the customer’s point of view.
 
-We’ll walk through five elements:  
+We’ll walk through five elements:
 
-1. Solution means what you’ve built.  
+1. Solution means what you’ve built.
 
-2. Customer means who is your target customer.  
+2. Customer means who is your target customer.
 
-3. Customers’ Aspiration means what your customers are trying to accomplish.  
+3. Customers’ Aspiration means what your customers are trying to accomplish.
 
-4. When does the Problem occur means the specific situation or moment when your customers experience the problem.   
+4. When does the Problem occur means the specific situation or moment when your customers experience the problem.
 
-5. Barriers means what prevents your customers from reaching their goals without your help.  
+5. Barriers means what prevents your customers from reaching their goals without your help.
 
-We will only focus on your perspective as the founder. However, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
+In the second part of this interview, we would like to show you a problem statement, similar to the one we just generated, that was developed by a Large Language Model for your company based on public information. We will ask for your feedback on this statement and how you would revise it based on your perspective as the founder.
+
+Lastly, for this conversation, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
 `,
         solution: `Lead Question (read verbatim):
-“Let’s begin with what you’ve built. How would you describe your product or solution? Please describe it  based on information that is publicly available on your startup.”   
+“Let’s begin with what you’ve built. How would you describe your product or solution?”
       
 Smooth Transition: “Thank you—that helps set the stage. Now let’s move on to the next variable. I’d like to understand who your customers are.”
  `,
@@ -198,7 +202,7 @@ Transitory wording between part 1 & part 2:
       },
       addBarrier: '+ Add Barrier',
       back: 'Back',
-      confirm: 'Confirm & Upload Transcript →'
+      confirm: 'Continue →'
     },
     transcript: {
       title: '4. Post-interview (Upload Transcript)',
@@ -672,7 +676,7 @@ Transitory wording between part 1 & part 2:
       },
       addBarrier: '+ 添加障碍',
       back: '返回',
-      confirm: '确认并上传访谈记录 →'
+      confirm: '继续 →'
     },
     transcript: {
       title: '4. 访谈后（上传访谈记录）',
