@@ -144,7 +144,7 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
           onClick={onNext}
           className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 transition-all"
         >
-          Confirm & Upload Transcript →
+          Continue →
         </button>
       </div>
     </div>
