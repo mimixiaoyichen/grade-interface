@@ -333,6 +333,11 @@ const downsampleToMonoWav = async (file: File, targetSampleRate = 16000): Promis
 };
 
 export const transcribeAudioWithDiarization = async (file: File, locale: LocaleOption = 'en'): Promise<TranscriptionResult> => {
+  const isAudio = (f: File) => (f.type && f.type.startsWith('audio/')) || /\.(wav|mp3|m4a|aac|flac|ogg|oga)$/i.test(f.name || '');
+  if (!isAudio(file)) {
+    throw new Error('Please upload an audio file (wav, mp3, m4a, aac, flac, ogg).');
+  }
+
   const toBase64 = (f: Blob) =>
     new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
