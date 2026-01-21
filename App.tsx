@@ -164,30 +164,31 @@ const INITIAL_STATEMENT: BaselineStatement = {
 };
 
 // Toggle Helper
-export const ScriptDropdown = ({ title = "View Script", children }) => (
-  <details className="w-full">
-    <summary
-      className="list-none cursor-pointer select-none text-xs text-gray-500 flex items-center gap-2 justify-end"
-    >
-      <span className="font-medium text-sm">{title}</span>
+const stripIndent = (text: string) =>
+  text
+    .replace(/\r/g, '')
+    .replace(/\n[ \t]+/g, '\n')
+    .trim();
 
+export const ScriptDropdown = ({ title = "View Script", children }) => (
+  <details className="w-full group">
+    <summary className="list-none cursor-pointer select-none text-xs text-gray-500 flex items-center gap-2 justify-end">
+      <span className="font-medium text-sm">{title}</span>
       <svg
-        className="w-4 h-4 transform transition-transform duration-150"
+        className="w-4 h-4 transform transition-transform duration-150 group-open:rotate-180"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 20 20"
         fill="currentColor"
         aria-hidden="true"
       >
-        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 011.14.98l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-        </svg>
-
-      <style jsx>{`
-        details[open] svg { transform: rotate(180deg); }
-        summary::-webkit-details-marker { display: none; }
-      `}</style>
+        <path
+          fillRule="evenodd"
+          d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 011.14.98l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z"
+          clipRule="evenodd"
+        />
+      </svg>
     </summary>
 
-    {/* FULL-WIDTH expanding region */}
     <div className="w-full mt-3 p-4 bg-gray-50 rounded border border-gray-100 text-sm text-gray-600">
       {children}
     </div>
@@ -582,7 +583,7 @@ function App() {
   // --- Render Helpers ---
 
   const renderStepIndicator = () => {
-    const steps = ["Pre-interview", "Founder Input", "Review Baseline", "Post-interview", "Discovery (P1)", "Feedback (P2)"];
+    const steps = ["Pre-interview", "Founder Input", "Review Baseline", "Transcript", "Discovery (P1)", "Feedback (P2)"];
 
     const availability = [
       true,
@@ -883,7 +884,7 @@ function App() {
 
                 <ScriptDropdown title="View Script">
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-            {`
+            {stripIndent(`
             Overview:
             “Hi [Name], thank you for joining today. I’m [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We’re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. Do you have any questions before we begin?
             
@@ -914,7 +915,7 @@ function App() {
 
             Lastly, for this conversation, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
  
-            `}
+            `)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -929,12 +930,12 @@ function App() {
 
                 <ScriptDropdown title="View Script">
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {`
+      {stripIndent(`
       Lead Question (read verbatim):
       “Let’s begin with what you’ve built. How would you describe your product or solution?”   
       
       Smooth Transition: “Thank you—that helps set the stage. Now let’s move on to the next variable. I’d like to understand who your customers are.”
- `}
+ `)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -957,7 +958,7 @@ function App() {
 
                 <ScriptDropdown title="View Script">
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {`
+      {stripIndent(`
       Lead Question (verbatim): “Tell me about the people or organizations that face the problem you are trying to solve. Who are they?”  
 
       Probing (if needed):
@@ -967,7 +968,7 @@ function App() {
       
       Reflective statement before transition: “So you’re saying your core customer is ___. Did I summarize that accurately?  
       [founder confirms OR offers more revisions] 
-      Now let’s move on to the next variable.”  `}
+      Now let’s move on to the next variable.”  `)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -990,7 +991,7 @@ function App() {
 
                 <ScriptDropdown title="View Script">
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {`
+      {stripIndent(`
         Lead Question (verbatim): “When does this problem occur for your customers? Can you describe the specific situation or moment when they face this challenge?”  
         
         Probing:  
@@ -999,7 +1000,7 @@ function App() {
         
         Reflective statement before transition:  “So the problem typically arises when ___. Did I capture that accurately? 
         [founder confirms OR offers more revisions] 
-        Now let’s move on to the next variable.”`}
+        Now let’s move on to the next variable.”`)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -1022,7 +1023,7 @@ function App() {
 
                 <ScriptDropdown title="View Script">
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {`Lead Question (verbatim): “What are your customers ultimately trying to achieve when they come to you? To be clear, I’m asking about the progress or goals they’re seeking—not what your product does. Please describe this using only publicly available information about your startup.”  
+      {stripIndent(`Lead Question (verbatim): “What are your customers ultimately trying to achieve when they come to you? To be clear, I’m asking about the progress or goals they’re seeking—not what your product does. Please describe this using only publicly available information about your startup.”  
 
       Important framing: Ask the founder to answer as the public would understand the startup, based on public external information.  
 
@@ -1032,7 +1033,7 @@ function App() {
       
       Reflective statement before transition: “What I’m hearing is that their aspiration is ___. Is that correct? 
       [founder confirms OR offers more revisions] 
-      Now let’s move on to the next variable.”`}
+      Now let’s move on to the next variable.”`)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -1056,7 +1057,7 @@ function App() {
                 <div className="flex items-center gap-3">
                   <ScriptDropdown title="View Script">
                     <div className="text-sm text-gray-600 whitespace-pre-line">
-      {`
+      {stripIndent(`
       Lead Question (verbatim): “What prevents your customers from achieving their aspirations or goals if your solution doesn’t exist? What specific obstacles stand in their way?”  
 
       Probing:
@@ -1069,7 +1070,7 @@ function App() {
       Transitory wording between part 1 & part 2: 
       “Awesome - now we have finished part 1 where you created your problem statement. Let’s proceed to the second part.”  
 
- `}
+ `)}
                     </div>
                   </ScriptDropdown>
 
