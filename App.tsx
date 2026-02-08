@@ -12,8 +12,10 @@ import {
   extractComponentEvidence,
   selectTopBarriers,
   checkPublicSupportForItems,
-  transcribeAudioWithDiarization
+  transcribeAudioWithDiarization,
+  applyGpt52ComponentLayer
 } from './services/aiService';
+import type { BaselineComponentLayerResult } from './services/aiService';
 import buildExportJson from './utils/buildExportJson';
 import {
   AppStatus, 
@@ -353,6 +355,8 @@ function App() {
   const [baselineStatement, setBaselineStatement] = useState<BaselineStatement | null>(null);
   const [baselineGenerated, setBaselineGenerated] = useState<BaselineStatement | null>(null);
   const [baselineLLM, setBaselineLLM] = useState<BaselineStatement | null>(null);
+  const [baselineLLMRaw4o, setBaselineLLMRaw4o] = useState<BaselineStatement | null>(null);
+  const [baselineGpt52Layer, setBaselineGpt52Layer] = useState<BaselineComponentLayerResult | null>(null);
   const [baselineSource, setBaselineSource] = useState<string>('');
   const [baselineLocale, setBaselineLocale] = useState<LocaleKey>('en');
 
@@ -521,6 +525,8 @@ function App() {
     setBaselineStatement(sample.baseline);
     setBaselineGenerated(sample.baseline);
     setBaselineLLM(sample.baseline);
+    setBaselineLLMRaw4o(sample.baseline);
+    setBaselineGpt52Layer(null);
     setFounderInput(sample.baseline);
     setTranscript(sample.transcript);
     setDiarizedPreview(sample.transcript);
@@ -552,6 +558,8 @@ function App() {
       baselineStatement,
       baselineGenerated,
       baselineLLM,
+      baselineLLMRaw4o,
+      baselineGpt52Layer,
       founderInput,
       transcript,
       splitData,
@@ -597,6 +605,8 @@ function App() {
     setBaselineStatement(snapshot.baselineStatement);
     setBaselineGenerated(snapshot.baselineGenerated);
     setBaselineLLM(snapshot.baselineLLM);
+    setBaselineLLMRaw4o(snapshot.baselineLLMRaw4o || null);
+    setBaselineGpt52Layer(snapshot.baselineGpt52Layer || null);
     setFounderInput(snapshot.founderInput);
     setTranscript(snapshot.transcript);
     setSplitData(snapshot.splitData);
@@ -805,6 +815,8 @@ function App() {
       setBaselineStatement(null);
       setBaselineGenerated(null);
       setBaselineLLM(null);
+      setBaselineLLMRaw4o(null);
+      setBaselineGpt52Layer(null);
       setBaselineSource('');
       setTranscript('');
       setSplitData(null);
@@ -838,6 +850,10 @@ function App() {
       setPublicInfo(fetchedText);
       setHasFetchedPublicInfo(true);
       setBaselineStatement(null);
+      setBaselineGenerated(null);
+      setBaselineLLM(null);
+      setBaselineLLMRaw4o(null);
+      setBaselineGpt52Layer(null);
       setBaselineSource('');
       setStatus(AppStatus.SUCCESS);
     } catch (e: any) {
@@ -882,10 +898,23 @@ function App() {
         console.error('Barrier selection failed', selectorError);
       }
 
-      const limitedBarriers = refinedBarriers.slice(0, 4);
-      setBaselineStatement({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
-      setBaselineGenerated({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
-      setBaselineLLM({ ...res, SPECIFIC_BARRIERS: limitedBarriers });
+      const base4o = { ...res, SPECIFIC_BARRIERS: refinedBarriers.slice(0, 4) };
+      setBaselineLLMRaw4o(base4o);
+
+      let finalBaseline = base4o;
+      let layerResult: BaselineComponentLayerResult | null = null;
+      try {
+        layerResult = await applyGpt52ComponentLayer(base4o, trimmedPublicInfo, locale);
+        finalBaseline = layerResult.revisedBaseline || base4o;
+      } catch (layerError) {
+        console.error('GPT-5.2 component layer failed; using raw 4o baseline.', layerError);
+        layerResult = null;
+      }
+
+      setBaselineGpt52Layer(layerResult);
+      setBaselineStatement(finalBaseline);
+      setBaselineGenerated(finalBaseline);
+      setBaselineLLM(finalBaseline);
       setBaselineSource(trimmedPublicInfo);
       setBaselineLocale(locale);
       // Clear downstream data that depends on baseline
@@ -1010,16 +1039,18 @@ function App() {
         reviewerNotes: '',
         reviewerDecision: undefined
       }));
-      // Add Solution row (from baseline) if not present
-      const hasSolution = rowsWithIds.some((r) => r.component === 'Solution');
-      const solutionRow: ComparisonRow = {
-        id: 'row-solution',
-        component: 'Solution',
-        baselineText: (baselineGenerated || baselineStatement)?.SOLUTION || '',
-        transcriptModification: (baselineStatement)?.SOLUTION || '',
-        reviewerEdit: (baselineStatement)?.SOLUTION || '',
+
+      const requiredComponents: ComparisonRow['component'][] = ['Solution', 'Customer', 'Context', 'Goal', 'Barrier'];
+      const componentsPresent = new Set(rowsWithIds.map((r) => r.component));
+
+      const buildFallbackRow = (component: ComparisonRow['component']): ComparisonRow => ({
+        id: `row-${component.toLowerCase()}`,
+        component,
+        baselineText: getGeneratedComponentText(component) || '',
+        transcriptModification: getReviewedComponentText(component) || '',
+        reviewerEdit: getReviewedComponentText(component) || '',
         type: 'Confirmation',
-        transcriptEvidence: t.comparison.support.solutionEvidenceFallback,
+        transcriptEvidence: component === 'Solution' ? t.comparison.support.solutionEvidenceFallback : '',
         publicSupport: '',
         publicEvidence: '',
         publicEvidenceContext: '',
@@ -1027,9 +1058,13 @@ function App() {
         isAccepted: false,
         reviewerNotes: '',
         reviewerDecision: undefined
-      };
+      });
 
-      const finalRows = hasSolution ? rowsWithIds : [solutionRow, ...rowsWithIds];
+      const fallbackRows = requiredComponents
+        .filter((component) => !componentsPresent.has(component))
+        .map(buildFallbackRow);
+
+      const finalRows = [...rowsWithIds, ...fallbackRows];
 
       setComparisonRows(finalRows);
       setSupportByRow(buildSupportState(finalRows));
@@ -1064,6 +1099,8 @@ function App() {
       publicInfo,
       baselineSource,
       baselineLLM: baselineLLM || baselineGenerated || baselineStatement,
+      baselineLLMRaw4o: baselineLLMRaw4o,
+      baselineGpt52Layer: baselineGpt52Layer,
       founderStatement: baselineStatement,
       part1Result,
       comparisonRows,
@@ -1184,6 +1221,10 @@ function App() {
     const llmBaseline = normalizeBaseline(
       statements.llm_generated_page1
     );
+    const llmBaselineRaw4o = normalizeBaseline(
+      statements.llm_generated_page1_raw_4o
+    );
+    const gpt52Layer = statements.llm_generated_page1_gpt52_layer || null;
     const founderBaseline = normalizeBaseline(
       statements.interviewer_review_page3
     );
@@ -1191,6 +1232,8 @@ function App() {
     setHasFetchedPublicInfo(Boolean(fetchedPublic || pitchbookText || combinedPublic || llmBaseline || founderBaseline));
     setBaselineLLM(llmBaseline);
     setBaselineGenerated(llmBaseline);
+    setBaselineLLMRaw4o(llmBaselineRaw4o || llmBaseline);
+    setBaselineGpt52Layer(gpt52Layer);
     setBaselineStatement(founderBaseline || llmBaseline || importedFounderInput);
     setBaselineLocale(locale);
     setIsStatementOpen(true);

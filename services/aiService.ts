@@ -17,6 +17,7 @@ import { uploadFileToBlob } from '../utils/blobUpload';
 import { SUPPORT_CHECK_PROMPT } from '../prompts/supportCheck';
 
 const MODEL_ID = 'gpt-4o';
+const COMPONENT_LAYER_MODEL_ID = 'gpt-5.2';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -56,14 +57,15 @@ const extractMessageText = (content: any): string => {
   return '';
 };
 
-const callJsonSchema = async <T>(
+const callJsonSchemaWithModel = async <T>(
+  modelId: string,
   messages: { role: 'system' | 'user'; content: string }[],
   schemaName: string,
   schema: JsonSchema,
   temperature = 0.2
 ): Promise<T> => {
   const response = await openai.chat.completions.create({
-    model: MODEL_ID,
+    model: modelId,
     messages,
     temperature,
     response_format: {
@@ -79,6 +81,15 @@ const callJsonSchema = async <T>(
   const text = extractMessageText(response.choices[0]?.message?.content);
   if (!text) throw new Error("No response from model");
   return JSON.parse(text) as T;
+};
+
+const callJsonSchema = async <T>(
+  messages: { role: 'system' | 'user'; content: string }[],
+  schemaName: string,
+  schema: JsonSchema,
+  temperature = 0.2
+): Promise<T> => {
+  return callJsonSchemaWithModel<T>(MODEL_ID, messages, schemaName, schema, temperature);
 };
 
 const callText = async (
@@ -193,11 +204,126 @@ const barrierSelectorSchema: JsonSchema = {
   additionalProperties: false
 };
 
+const componentJudgeItemSchema: JsonSchema = {
+  type: "object",
+  properties: {
+    needs_rewrite: { type: "boolean" },
+    entity_issue: { type: "boolean" },
+    confusion_issue: { type: "boolean" },
+    redundancy_issue: { type: "boolean" },
+    reason: { type: "string" }
+  },
+  required: ["needs_rewrite", "entity_issue", "confusion_issue", "redundancy_issue", "reason"],
+  additionalProperties: false
+};
+
+const componentJudgeSchema: JsonSchema = {
+  type: "object",
+  properties: {
+    solution: componentJudgeItemSchema,
+    customer: componentJudgeItemSchema,
+    context: componentJudgeItemSchema,
+    goal: componentJudgeItemSchema,
+    barrier: componentJudgeItemSchema
+  },
+  required: ["solution", "customer", "context", "goal", "barrier"],
+  additionalProperties: false
+};
+
+const componentRewriteSchema: JsonSchema = {
+  type: "object",
+  properties: {
+    revised_solution: { type: "string" },
+    revised_customer: { type: "string" },
+    revised_context: { type: "string" },
+    revised_goal: { type: "string" },
+    revised_barrier: { type: "string" },
+    notes: { type: "string" }
+  },
+  required: ["revised_solution", "revised_customer", "revised_context", "revised_goal", "revised_barrier", "notes"],
+  additionalProperties: false
+};
+
+type ComponentJudgeItem = {
+  needs_rewrite: boolean;
+  entity_issue: boolean;
+  confusion_issue: boolean;
+  redundancy_issue: boolean;
+  reason: string;
+};
+
+type ComponentJudgeResult = {
+  solution: ComponentJudgeItem;
+  customer: ComponentJudgeItem;
+  context: ComponentJudgeItem;
+  goal: ComponentJudgeItem;
+  barrier: ComponentJudgeItem;
+};
+
+type ComponentRewriteResult = {
+  revised_solution: string;
+  revised_customer: string;
+  revised_context: string;
+  revised_goal: string;
+  revised_barrier: string;
+  notes: string;
+};
+
+export type BaselineComponentLayerResult = {
+  model: string;
+  rewroteAny: boolean;
+  judge: ComponentJudgeResult;
+  notes: string;
+  revisedBaseline: BaselineStatement;
+};
+
 const comparisonSchema: JsonSchema = {
   type: "object",
   properties: {
     rows: {
       type: "array",
+      minItems: 5,
+      maxItems: 5,
+      contains: {
+        type: "object",
+        properties: { component: { const: "Solution" } },
+        required: ["component"],
+        additionalProperties: true
+      },
+      allOf: [
+        {
+          contains: {
+            type: "object",
+            properties: { component: { const: "Customer" } },
+            required: ["component"],
+            additionalProperties: true
+          }
+        },
+        {
+          contains: {
+            type: "object",
+            properties: { component: { const: "Context" } },
+            required: ["component"],
+            additionalProperties: true
+          }
+        },
+        {
+          contains: {
+            type: "object",
+            properties: { component: { const: "Goal" } },
+            required: ["component"],
+            additionalProperties: true
+          }
+        },
+        {
+          contains: {
+            type: "object",
+            properties: { component: { const: "Barrier" } },
+            required: ["component"],
+            additionalProperties: true
+          }
+        }
+      ],
       items: {
         type: "object",
         properties: {
@@ -218,6 +344,64 @@ const comparisonSchema: JsonSchema = {
   },
   required: ["rows"],
   additionalProperties: false
+};
+
+const REQUIRED_COMPARISON_COMPONENTS = ['Solution', 'Customer', 'Context', 'Goal', 'Barrier'] as const;
+type ComparisonComponent = typeof REQUIRED_COMPARISON_COMPONENTS[number];
+
+const getBaselineComponentText = (baseline: BaselineStatement, component: ComparisonComponent) => {
+  switch (component) {
+    case 'Solution':
+      return baseline.SOLUTION || '';
+    case 'Customer':
+      return baseline.CUSTOMER_SEGMENT || '';
+    case 'Context':
+      return baseline.LIFE_BUSINESS_CONTEXT || '';
+    case 'Goal':
+      return baseline.JOB_TO_BE_DONE || '';
+    case 'Barrier':
+      return (baseline.SPECIFIC_BARRIERS || []).join('; ');
+    default:
+      return '';
+  }
+};
+
+const getMissingComparisonComponents = (rows: Array<{ component?: string }>) => {
+  const present = new Set(rows.map((row) => row.component).filter(Boolean));
+  return REQUIRED_COMPARISON_COMPONENTS.filter((component) => !present.has(component));
+};
+
+const normalizeComparisonRows = (rows: Array<any>, baseline: BaselineStatement) => {
+  const seen = new Set<ComparisonComponent>();
+  const normalized: Array<any> = [];
+
+  for (const row of rows) {
+    const component = row?.component as ComparisonComponent | undefined;
+    if (!component || !REQUIRED_COMPARISON_COMPONENTS.includes(component)) {
+      continue;
+    }
+    if (seen.has(component)) continue;
+    seen.add(component);
+    normalized.push(row);
+  }
+
+  for (const component of REQUIRED_COMPARISON_COMPONENTS) {
+    if (seen.has(component)) continue;
+    const baselineText = getBaselineComponentText(baseline, component);
+    normalized.push({
+      component,
+      baselineText,
+      transcriptModification: baselineText,
+      type: 'Confirmation',
+      transcriptEvidence: '',
+      publicEvidence: '',
+      publicEvidenceContext: '',
+      isSupportedByPublic: false,
+      publicSupport: 'Not found in public info'
+    });
+  }
+
+  return normalized;
 };
 
 const componentEvidenceSchema: JsonSchema = {
@@ -503,7 +687,7 @@ export const fetchPublicInfoFromUrl = async (url: string): Promise<string> => {
         sections.push(`[Page fetch failed: ${resp.status} ${resp.statusText}${snippet ? ` — ${snippet}` : ''}]`);
       } else {
         const data = await parseJsonSafe(resp);
-        sections.push(`${data.summary}\n\n==========================================\n=== VERBATIM PAGE CONTENT (Cleaned) ===\n==========================================\n\n${data.cleaned}`);
+        sections.push(`${data.summary}\n\n==========================================\n=== VERBATIM OFFICIAL SITE CONTENT (Cleaned) ===\n==========================================\n\n${data.cleaned}`);
         try {
           const host = new URL(normalizedUrl).hostname.replace(/^www\./, '');
           if (host) searchTerm = host;
@@ -626,6 +810,152 @@ export const selectTopBarriers = async (
   return res.SPECIFIC_BARRIERS;
 };
 
+const cleanText = (value: unknown) => (value === null || value === undefined ? '' : String(value).trim());
+
+const baselineToComponents = (baseline: BaselineStatement) => ({
+  solution: cleanText(baseline.SOLUTION),
+  customer: cleanText(baseline.CUSTOMER_SEGMENT),
+  context: cleanText(baseline.LIFE_BUSINESS_CONTEXT),
+  goal: cleanText(baseline.JOB_TO_BE_DONE),
+  barrier: cleanText((baseline.SPECIFIC_BARRIERS || []).join('; '))
+});
+
+const splitBarrierText = (barrierText: string): string[] => {
+  const raw = cleanText(barrierText);
+  if (!raw) return [];
+  const parts = raw
+    .split(/[;\n]+/)
+    .map((p) => cleanText(p))
+    .filter(Boolean);
+  const deduped: string[] = [];
+  for (const part of parts) {
+    if (!deduped.includes(part)) deduped.push(part);
+  }
+  return deduped;
+};
+
+const anyComponentFlagged = (judge: ComponentJudgeResult) =>
+  Boolean(
+    judge.solution?.needs_rewrite ||
+    judge.customer?.needs_rewrite ||
+    judge.context?.needs_rewrite ||
+    judge.goal?.needs_rewrite ||
+    judge.barrier?.needs_rewrite
+  );
+
+const applyNonFlaggedCopySafeguard = (
+  original: ReturnType<typeof baselineToComponents>,
+  judge: ComponentJudgeResult,
+  revised: ComponentRewriteResult
+): ComponentRewriteResult => {
+  const output: ComponentRewriteResult = { ...revised };
+  if (!judge.solution.needs_rewrite) output.revised_solution = original.solution;
+  if (!judge.customer.needs_rewrite) output.revised_customer = original.customer;
+  if (!judge.context.needs_rewrite) output.revised_context = original.context;
+  if (!judge.goal.needs_rewrite) output.revised_goal = original.goal;
+  if (!judge.barrier.needs_rewrite) output.revised_barrier = original.barrier;
+  return output;
+};
+
+const COMPONENT_JUDGE_PROMPT = [
+  'You are a strict component-level QA judge for startup statements.',
+  'For each component (solution, customer, context, goal, barrier), set needs_rewrite=true ONLY if there is a real issue.',
+  'Allowed issue types: entity_issue, confusion_issue, redundancy_issue.',
+  'entity_issue=true only when startup/company/product/service/feature/trademark names are copied from source.',
+  'Generic standards/regulations (HIPAA, GDPR, SOC 2, ISO, FDA, PCI) are NOT entity issues.',
+  'confusion_issue=true when a component semantically belongs to another component (e.g., goal phrased as context).',
+  'redundancy_issue=true when a component substantially repeats another component meaning.',
+  'CRITICAL: style/tone/grammar tightening alone is NOT an issue.',
+  'If no true issue exists, set all issue flags false and needs_rewrite=false.',
+  'Return JSON only.'
+].join(' ');
+
+const COMPONENT_REWRITE_PROMPT = [
+  'You are a strict minimal editor.',
+  'You receive original statements and per-component issue flags.',
+  'Rewrite ONLY components where needs_rewrite=true.',
+  'For components where needs_rewrite=false, copy original text EXACTLY, byte-for-byte.',
+  'Do NOT make style or tone polishing edits.',
+  'When rewriting, fix only flagged issue types (entity/confusion/redundancy) and preserve core meaning.',
+  'Keep solution/customer/context/goal concise single statements; barrier can be semicolon-separated concrete obstacles.',
+  'Return JSON only.'
+].join(' ');
+
+export const applyGpt52ComponentLayer = async (
+  baseline: BaselineStatement,
+  publicInfo: string,
+  locale: LocaleOption = 'en'
+): Promise<BaselineComponentLayerResult> => {
+  const original = baselineToComponents(baseline);
+  const sourceExcerpt = cleanText(publicInfo).slice(0, 10000);
+  const judge = await callJsonSchemaWithModel<ComponentJudgeResult>(
+    COMPONENT_LAYER_MODEL_ID,
+    [
+      ...languageMessages(locale),
+      { role: 'system', content: COMPONENT_JUDGE_PROMPT },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          source_material_excerpt: sourceExcerpt,
+          statements: original
+        })
+      }
+    ],
+    'component_gated_judge_schema',
+    componentJudgeSchema,
+    0
+  );
+
+  if (!anyComponentFlagged(judge)) {
+    return {
+      model: COMPONENT_LAYER_MODEL_ID,
+      rewroteAny: false,
+      judge,
+      notes: 'No rewrite needed (no flagged issues).',
+      revisedBaseline: baseline
+    };
+  }
+
+  const rewritten = await callJsonSchemaWithModel<ComponentRewriteResult>(
+    COMPONENT_LAYER_MODEL_ID,
+    [
+      ...languageMessages(locale),
+      { role: 'system', content: COMPONENT_REWRITE_PROMPT },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          source_material_excerpt: sourceExcerpt,
+          original_statements: original,
+          component_flags: judge
+        })
+      }
+    ],
+    'component_gated_rewrite_schema',
+    componentRewriteSchema,
+    0.1
+  );
+
+  const safe = applyNonFlaggedCopySafeguard(original, judge, rewritten);
+  const revisedBarriers = splitBarrierText(safe.revised_barrier);
+  const fallbackBarriers = baseline.SPECIFIC_BARRIERS || [];
+
+  const revisedBaseline: BaselineStatement = {
+    SOLUTION: cleanText(safe.revised_solution),
+    CUSTOMER_SEGMENT: cleanText(safe.revised_customer),
+    LIFE_BUSINESS_CONTEXT: cleanText(safe.revised_context),
+    JOB_TO_BE_DONE: cleanText(safe.revised_goal),
+    SPECIFIC_BARRIERS: (revisedBarriers.length ? revisedBarriers : fallbackBarriers).slice(0, 4)
+  };
+
+  return {
+    model: COMPONENT_LAYER_MODEL_ID,
+    rewroteAny: true,
+    judge,
+    notes: cleanText(safe.notes),
+    revisedBaseline
+  };
+};
+
 export const generateComparison = async (
   baseline: BaselineStatement,
   transcriptPart2: string,
@@ -633,16 +963,42 @@ export const generateComparison = async (
   locale: LocaleOption = 'en'
 ): Promise<ComparisonResult> => {
   const baselineStr = JSON.stringify(baseline, null, 2);
-  return callJsonSchema<ComparisonResult>(
-    [
-      ...languageMessages(locale),
-      { role: 'system', content: COMPARISON_PROMPT_TEXT },
-      { role: 'user', content: `BASELINE STATEMENT:\n${baselineStr}\n\nPUBLIC INFO:\n${publicInfo}\n\nTRANSCRIPT PART 2 (FEEDBACK):\n${transcriptPart2}${languageHint(locale)}` }
-    ],
-    "comparison_schema",
-    comparisonSchema,
-    0.1
-  );
+  const buildMessages = (extraInstruction?: string) => ([
+    ...languageMessages(locale),
+    {
+      role: 'system',
+      content: extraInstruction
+        ? `${COMPARISON_PROMPT_TEXT}\n\n${extraInstruction}`
+        : COMPARISON_PROMPT_TEXT
+    },
+    { role: 'user', content: `BASELINE STATEMENT:\n${baselineStr}\n\nPUBLIC INFO:\n${publicInfo}\n\nTRANSCRIPT PART 2 (FEEDBACK):\n${transcriptPart2}${languageHint(locale)}` }
+  ]);
+
+  const runOnce = (extraInstruction?: string) =>
+    callJsonSchema<ComparisonResult>(
+      buildMessages(extraInstruction),
+      "comparison_schema",
+      comparisonSchema,
+      0.1
+    );
+
+  const firstAttempt = await runOnce();
+  const missingFirst = getMissingComparisonComponents(firstAttempt.rows || []);
+
+  if (missingFirst.length === 0 && (firstAttempt.rows?.length === 5)) {
+    return firstAttempt;
+  }
+
+  try {
+    const retry = await runOnce(
+      `You must return exactly one row for each component: Solution, Customer, Context, Goal, Barrier. ` +
+      `The previous response was missing: ${missingFirst.join(', ') || 'unknown components'}. ` +
+      `Return a complete corrected array with all required fields present.`
+    );
+    return { rows: normalizeComparisonRows(retry.rows || [], baseline) };
+  } catch (err) {
+    return { rows: normalizeComparisonRows(firstAttempt.rows || [], baseline) };
+  }
 };
 
 export const checkPublicSupportForItems = async (

@@ -1,6 +1,7 @@
 export const COMPARISON_PROMPT_TEXT = `
 You compare a baseline statement (from public truth) with a transcript Part 2 (feedback/corrections).
-Return rows where the transcript modifies, omits, hallucinates, or confirms the baseline components (Solution, Customer, Context, Goal, Barrier).
+Return exactly one row for each baseline component (Solution, Customer, Context, Goal, Barrier).
+If the transcript does not change a component, return it as a Confirmation.
 For each row include:
 - component, baselineText, transcriptModification, type (Modification | Omission | Hallucination | Confirmation)
 - transcriptEvidence: verbatim snippet from the transcript that justifies the change

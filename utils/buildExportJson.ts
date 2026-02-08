@@ -6,6 +6,8 @@ export interface ExportOptions {
   publicInfo?: string;
   baselineSource?: string;
   baselineLLM?: BaselineStatement | null;
+  baselineLLMRaw4o?: BaselineStatement | null;
+  baselineGpt52Layer?: any;
   founderStatement?: BaselineStatement | null;
   part1Result?: StatementResult | null;
   comparisonRows?: ComparisonRow[];
@@ -45,6 +47,8 @@ export const buildExportJson = (opts: ExportOptions) => {
 
   const statements = {
     llm_generated_page1: opts.baselineLLM || null,
+    llm_generated_page1_raw_4o: opts.baselineLLMRaw4o || null,
+    llm_generated_page1_gpt52_layer: opts.baselineGpt52Layer || null,
     founder_input_page2: opts.founderInput || null,
     interviewer_review_page3: opts.founderStatement || null,
     interviewer_final_page5: {

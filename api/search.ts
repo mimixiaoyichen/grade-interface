@@ -96,13 +96,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const targetDomain = looksLikeDomain ? extractDomainFromString(query) : null;
     const brandTokens = buildBrandTokens(targetDomain);
     // 2) Fetch top sources server-side and return cleaned content (no summary)
-    const topUrls = uniqueUrls.slice(0, 10);
+    const topUrls = uniqueUrls.slice(0, 5);
     const fetched = await Promise.all(topUrls.map(async (u) => {
+      try {
+        if (/\/(blog|docs|pricing)(\/|$)/i.test(new URL(u).pathname)) {
+          return { url: u, title: urlTitles[u] || '', filteredOutReason: 'Filtered path (blog/docs/pricing)' };
+        }
+      } catch {
+        // ignore URL parsing issues; let fetch attempt handle it
+      }
       try {
         const resp = await fetch(u);
         if (!resp.ok) throw new Error(`Status ${resp.status}`);
         const html = await resp.text();
-        const cleaned = cleanHtml(html).slice(0, 12000); // protect payload size
+        const cleaned = cleanHtml(html).slice(0, 6000); // protect payload size
         const mentionsDomainInHtml = targetDomain ? html.toLowerCase().includes(targetDomain) : false;
         let isOfficial = false;
         let host: string | null = null;
@@ -121,7 +128,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }));
 
     const allResults = fetched.filter((r) => !r.error && r.content);
-    const filteredOut: any[] = [];
+    const filteredOut: any[] = fetched
+      .filter((r) => r.filteredOutReason)
+      .map((r) => ({ url: r.url, title: r.title, reason: r.filteredOutReason }));
 
     const results = allResults.filter((r) => {
       if (r.isOfficial) return true; // always keep official sources
