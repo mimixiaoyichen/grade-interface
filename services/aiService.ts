@@ -284,46 +284,6 @@ const comparisonSchema: JsonSchema = {
       type: "array",
       minItems: 5,
       maxItems: 5,
-      contains: {
-        type: "object",
-        properties: { component: { const: "Solution" } },
-        required: ["component"],
-        additionalProperties: true
-      },
-      allOf: [
-        {
-          contains: {
-            type: "object",
-            properties: { component: { const: "Customer" } },
-            required: ["component"],
-            additionalProperties: true
-          }
-        },
-        {
-          contains: {
-            type: "object",
-            properties: { component: { const: "Context" } },
-            required: ["component"],
-            additionalProperties: true
-          }
-        },
-        {
-          contains: {
-            type: "object",
-            properties: { component: { const: "Goal" } },
-            required: ["component"],
-            additionalProperties: true
-          }
-        },
-        {
-          contains: {
-            type: "object",
-            properties: { component: { const: "Barrier" } },
-            required: ["component"],
-            additionalProperties: true
-          }
-        }
-      ],
       items: {
         type: "object",
         properties: {
