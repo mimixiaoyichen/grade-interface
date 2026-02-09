@@ -821,10 +821,11 @@ const COMPONENT_JUDGE_PROMPT = [
   'You are a strict component-level QA judge for startup statements.',
   'For each component (solution, customer, context, goal, barrier), set needs_rewrite=true ONLY if there is a real issue.',
   'Allowed issue types: entity_issue, confusion_issue, redundancy_issue.',
+  'Flag needs_rewrite=true if statement uses vague anaphora like "this/that/these/those/it" without explicit referent in same sentence.',
   'entity_issue=true only when startup/company/product/service/feature/trademark names are copied from source.',
   'Generic standards/regulations (HIPAA, GDPR, SOC 2, ISO, FDA, PCI) are NOT entity issues.',
   'confusion_issue=true when a component semantically belongs to another component (e.g., goal phrased as context).',
-  'redundancy_issue=true when a component substantially repeats another component meaning.',
+  'redundancy_issue=true when this component substantially repeats another component meaning.',
   'CRITICAL: style/tone/grammar tightening alone is NOT an issue.',
   'If no true issue exists, set all issue flags false and needs_rewrite=false.',
   'Return JSON only.'
@@ -836,6 +837,8 @@ const COMPONENT_REWRITE_PROMPT = [
   'Rewrite ONLY components where needs_rewrite=true.',
   'For components where needs_rewrite=false, copy original text EXACTLY, byte-for-byte.',
   'Do NOT make style or tone polishing edits.',
+  'Do not use vague references like "this/that/these/those/it".',
+  'Hard constraint: rewritten output must not contain the tokens this, that, these, those, or it.',
   'When rewriting, fix only flagged issue types (entity/confusion/redundancy) and preserve core meaning.',
   'Keep solution/customer/context/goal concise single statements; barrier can be semicolon-separated concrete obstacles.',
   'Return JSON only.'
