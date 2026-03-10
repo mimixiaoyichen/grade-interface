@@ -10,10 +10,8 @@ import {
   generateComparison,
   fetchPublicInfoFromUrl,
   extractComponentEvidence,
-  selectTopBarriers,
   checkPublicSupportForItems,
-  transcribeAudioWithDiarization,
-  applyGpt52ComponentLayer
+  transcribeAudioWithDiarization
 } from './services/aiService';
 import type { BaselineComponentLayerResult } from './services/aiService';
 import buildExportJson from './utils/buildExportJson';
@@ -887,34 +885,11 @@ function App() {
     setErrorMsg('');
     try {
       const res = await generateBaselineStatement(trimmedPublicInfo, locale);
-      let refinedBarriers = res.SPECIFIC_BARRIERS || [];
-
-      try {
-        const selected = await selectTopBarriers(res, trimmedPublicInfo, locale);
-        if (selected && selected.length) {
-          refinedBarriers = selected;
-        }
-      } catch (selectorError) {
-        console.error('Barrier selection failed', selectorError);
-      }
-
-      const base4o = { ...res, SPECIFIC_BARRIERS: refinedBarriers.slice(0, 4) };
-      setBaselineLLMRaw4o(base4o);
-
-      let finalBaseline = base4o;
-      let layerResult: BaselineComponentLayerResult | null = null;
-      try {
-        layerResult = await applyGpt52ComponentLayer(base4o, trimmedPublicInfo, locale);
-        finalBaseline = layerResult.revisedBaseline || base4o;
-      } catch (layerError) {
-        console.error('GPT-5.2 component layer failed; using raw 4o baseline.', layerError);
-        layerResult = null;
-      }
-
-      setBaselineGpt52Layer(layerResult);
-      setBaselineStatement(finalBaseline);
-      setBaselineGenerated(finalBaseline);
-      setBaselineLLM(finalBaseline);
+      setBaselineLLMRaw4o(res);
+      setBaselineGpt52Layer(null);
+      setBaselineStatement(res);
+      setBaselineGenerated(res);
+      setBaselineLLM(res);
       setBaselineSource(trimmedPublicInfo);
       setBaselineLocale(locale);
       // Clear downstream data that depends on baseline

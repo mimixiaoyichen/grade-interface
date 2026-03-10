@@ -739,7 +739,8 @@ export const generateBaselineStatement = async (
   publicInfo: string,
   locale: LocaleOption = 'en'
 ): Promise<BaselineStatement> => {
-  return callJsonSchema<BaselineStatement>(
+  return callJsonSchemaWithModel<BaselineStatement>(
+    COMPONENT_LAYER_MODEL_ID,
     [
       ...languageMessages(locale),
       { role: 'system', content: BASELINE_PROMPT },
