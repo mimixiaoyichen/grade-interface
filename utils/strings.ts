@@ -41,7 +41,8 @@ export const translations = {
       noSupportItems: 'No omissions or hallucinations provided to check.',
       supportCheckFailed: 'Public support check failed.',
       loadJsonFailed: 'Failed to load JSON: ',
-      comparisonFailed: 'Comparison generation failed.'
+      comparisonFailed: 'Comparison generation failed.',
+      exportPart2Missing: 'Cannot export JSON because Part 5 feedback rows are empty. Re-run the comparison step before exporting.'
     },
     statuses: {
       uploadingAudio: 'Uploading audio',
@@ -537,7 +538,8 @@ Transitory wording between part 1 & part 2:
       noSupportItems: '没有可检查的内容。',
       supportCheckFailed: '公开证据检查失败。',
       loadJsonFailed: '加载 JSON 失败：',
-      comparisonFailed: '生成对比失败。'
+      comparisonFailed: '生成对比失败。',
+      exportPart2Missing: '当前无法导出 JSON，因为第 5 部分反馈行为空。请先重新运行对比步骤再导出。'
     },
     statuses: {
       uploadingAudio: '正在上传音频',

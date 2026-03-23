@@ -1067,7 +1067,16 @@ function App() {
     return `${safeBase}-${ts}.${ext}`;
   };
 
+  const hasPart2WorkStarted = Boolean(
+    transcript.trim() || splitData || part1Result || comparisonRows.length
+  );
+  const exportBlockedBecauseMissingPart2 = hasPart2WorkStarted && comparisonRows.length === 0;
+
   const handleExportJson = () => {
+    if (exportBlockedBecauseMissingPart2) {
+      setErrorMsg(errors.exportPart2Missing);
+      return;
+    }
     const json = buildExportJson({
       companyUrl,
       pitchbookInfo,
@@ -1552,7 +1561,9 @@ function App() {
              </button>
              <button
                onClick={handleExportJson}
-               className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
+               disabled={exportBlockedBecauseMissingPart2}
+               title={exportBlockedBecauseMissingPart2 ? errors.exportPart2Missing : undefined}
+               className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
              >
                {common.downloadJson}
              </button>
