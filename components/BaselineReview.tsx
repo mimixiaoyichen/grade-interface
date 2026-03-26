@@ -38,8 +38,26 @@ const ScriptDropdown: React.FC<{ title?: string; children: React.ReactNode }> = 
   );
 };
 
+type ContextField = { field: 'CUSTOMER_SEGMENT' | 'LIFE_BUSINESS_CONTEXT' | 'JOB_TO_BE_DONE'; labelKey: 'customer' | 'context' | 'goal' };
+
+const shuffle = <T,>(arr: T[]): T[] => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+const CONTEXT_FIELDS: ContextField[] = [
+  { field: 'CUSTOMER_SEGMENT', labelKey: 'customer' },
+  { field: 'LIFE_BUSINESS_CONTEXT', labelKey: 'context' },
+  { field: 'JOB_TO_BE_DONE', labelKey: 'goal' },
+];
+
 const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onNext, onBack }) => {
   const [data, setData] = useState<BaselineStatement>(baseline);
+  const [shuffledFields] = useState<ContextField[]>(() => shuffle(CONTEXT_FIELDS));
   const t = useT().baselineReview;
   const common = useT().common;
 
@@ -86,41 +104,23 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
       </div>
 
       <div className="space-y-6">
+        {shuffledFields.map(({ field, labelKey }) => (
+          <div key={field}>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t.labels[labelKey]}</label>
+            <textarea
+              value={data[field] as string}
+              onChange={(e) => handleChange(field, e.target.value)}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+              rows={5}
+            />
+          </div>
+        ))}
+
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t.labels.solution}</label>
-          <textarea 
+          <textarea
             value={data.SOLUTION}
             onChange={(e) => handleChange('SOLUTION', e.target.value)}
-            className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-            rows={5}
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t.labels.customer}</label>
-          <textarea 
-            value={data.CUSTOMER_SEGMENT}
-            onChange={(e) => handleChange('CUSTOMER_SEGMENT', e.target.value)}
-            className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-            rows={5}
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t.labels.context}</label>
-          <textarea 
-            value={data.LIFE_BUSINESS_CONTEXT}
-            onChange={(e) => handleChange('LIFE_BUSINESS_CONTEXT', e.target.value)}
-            className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-            rows={5}
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t.labels.goal}</label>
-          <textarea 
-            value={data.JOB_TO_BE_DONE}
-            onChange={(e) => handleChange('JOB_TO_BE_DONE', e.target.value)}
             className="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
             rows={5}
           />

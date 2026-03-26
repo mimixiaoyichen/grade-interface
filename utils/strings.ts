@@ -136,7 +136,7 @@ We’ll walk through five elements:
 
 5. Barriers means what prevents your customers from reaching their goals without your help.
 
-In the second part of this interview, we would like to show you a problem statement, similar to the one we just generated, that was developed by a Large Language Model for your company based on public information. We will ask for your feedback on this statement and how you would revise it based on your perspective as the founder.
+In the second part of this interview, we would like to show you a problem statement, similar to what we will generate together, that was developed by a Large Language Model for your company based on public information. We will ask for your feedback on this statement and how you would revise it based on your perspective as the founder.
 
 Lastly, for this conversation, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
 `,
