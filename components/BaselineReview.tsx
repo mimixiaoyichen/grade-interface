@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { BaselineStatement } from '../types';
 import { useT } from '../utils/strings';
+import { stripBarrierLeadIn } from '../utils/barriers';
 import { BASELINE_REVIEW_FIELDS, type BaselineReviewField } from '../utils/baselineReviewOrder';
 
 interface BaselineReviewProps {
@@ -64,7 +65,7 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, fieldOrder, o
 
   const handleBarrierChange = (idx: number, val: string) => {
     const newBarriers = [...data.SPECIFIC_BARRIERS];
-    newBarriers[idx] = val;
+    newBarriers[idx] = stripBarrierLeadIn(val);
     handleChange('SPECIFIC_BARRIERS', newBarriers);
   };
 
@@ -127,7 +128,7 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, fieldOrder, o
               <div key={idx} className="flex gap-2">
                 <span className="text-gray-400 text-sm py-2 w-4">{idx + 1}.</span>
                 <textarea
-                  value={barrier}
+                  value={stripBarrierLeadIn(barrier)}
                   onChange={(e) => handleBarrierChange(idx, e.target.value)}
                   className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
                   rows={1}

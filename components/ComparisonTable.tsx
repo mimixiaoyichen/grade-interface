@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import { ComparisonRow, SupportCheckItem, SupportRowState } from '../types';
 import { useT } from '../utils/strings';
+import { stripBarrierLeadIn } from '../utils/barriers';
 
 interface ComparisonTableProps {
   rows: ComparisonRow[];
@@ -127,6 +128,12 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
               : undefined;
             const evidenceText = ev ? ev.context : row.transcriptEvidence;
             const evidenceCore = ev ? ev.core : row.transcriptEvidence;
+            const displayBaselineText = row.component === 'Barrier'
+              ? stripBarrierLeadIn(row.baselineText)
+              : row.baselineText;
+            const displayReviewerEdit = row.component === 'Barrier'
+              ? stripBarrierLeadIn(row.reviewerEdit ?? row.transcriptModification)
+              : (row.reviewerEdit ?? row.transcriptModification);
 
             const renderEvidenceContent = (context: string, core?: string) => {
               if (!context) {
@@ -183,11 +190,11 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                   <div className="text-gray-600 text-sm space-y-3">
                     <div className="text-[10px] uppercase text-gray-400 font-semibold">{text.labels.llmGenerated}</div>
-                    <div>{row.baselineText || <span className="italic text-gray-300">--</span>}</div>
+                    <div>{displayBaselineText || <span className="italic text-gray-300">--</span>}</div>
                     <div className="space-y-2">
                       <div className="border border-gray-200 rounded-lg p-2 bg-white shadow-inner">
                         <textarea
-                          value={row.reviewerEdit ?? row.transcriptModification}
+                          value={displayReviewerEdit}
                           onChange={(e) => {
                             if (onEditChange) onEditChange(row.id, e.target.value);
                             const newRows = [...rows];

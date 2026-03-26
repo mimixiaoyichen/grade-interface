@@ -35,6 +35,7 @@ import Part2Comparison from './components/Part2Comparison';
 import ConsentModal from './components/ConsentModal';
 import GuidedTour, { TourStep as GuidedTourStep } from './components/GuidedTour';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
+import { stripBarrierLeadIn, stripBarrierLeadInList } from './utils/barriers';
 import {
   createShuffledBaselineReviewFieldOrder,
   resolveBaselineReviewFieldOrder,
@@ -51,7 +52,7 @@ const getComponentText = (
     case 'Customer': return source.CUSTOMER_SEGMENT || '';
     case 'Context': return source.LIFE_BUSINESS_CONTEXT || '';
     case 'Goal': return source.JOB_TO_BE_DONE || '';
-    case 'Barrier': return (source.SPECIFIC_BARRIERS || []).join('; ');
+    case 'Barrier': return stripBarrierLeadInList(source.SPECIFIC_BARRIERS || []).join('; ');
     default: return '';
   }
 };
@@ -916,7 +917,10 @@ function App() {
 
   // Helper for Founder Input Changes
   const updateFounderInput = (field: keyof BaselineStatement, value: string | string[]) => {
-    setFounderInput(prev => ({ ...prev, [field]: value }));
+    const normalizedValue = field === 'SPECIFIC_BARRIERS'
+      ? stripBarrierLeadInList(value as string[])
+      : value;
+    setFounderInput(prev => ({ ...prev, [field]: normalizedValue }));
   };
 
   // Step 2 -> Step 3
@@ -1022,7 +1026,12 @@ function App() {
         baselineText: getGeneratedComponentText(r.component) || r.baselineText,
         id: `row-${i}`,
         isAccepted: false,
-        reviewerEdit: getReviewedComponentText(r.component) || r.transcriptModification,
+        transcriptModification: r.component === 'Barrier'
+          ? stripBarrierLeadIn(r.transcriptModification)
+          : r.transcriptModification,
+        reviewerEdit: r.component === 'Barrier'
+          ? stripBarrierLeadIn(getReviewedComponentText(r.component) || r.transcriptModification)
+          : (getReviewedComponentText(r.component) || r.transcriptModification),
         reviewerNotes: '',
         reviewerDecision: undefined
       }));
@@ -1034,8 +1043,12 @@ function App() {
         id: `row-${component.toLowerCase()}`,
         component,
         baselineText: getGeneratedComponentText(component) || '',
-        transcriptModification: getReviewedComponentText(component) || '',
-        reviewerEdit: getReviewedComponentText(component) || '',
+        transcriptModification: component === 'Barrier'
+          ? stripBarrierLeadIn(getReviewedComponentText(component) || '')
+          : (getReviewedComponentText(component) || ''),
+        reviewerEdit: component === 'Barrier'
+          ? stripBarrierLeadIn(getReviewedComponentText(component) || '')
+          : (getReviewedComponentText(component) || ''),
         type: 'Confirmation',
         transcriptEvidence: component === 'Solution' ? t.comparison.support.solutionEvidenceFallback : '',
         publicSupport: '',
@@ -1131,7 +1144,7 @@ function App() {
         CUSTOMER_SEGMENT: raw.CUSTOMER_SEGMENT || '',
         LIFE_BUSINESS_CONTEXT: raw.LIFE_BUSINESS_CONTEXT || '',
         JOB_TO_BE_DONE: raw.JOB_TO_BE_DONE || '',
-        SPECIFIC_BARRIERS: barriers.length ? barriers : ['']
+        SPECIFIC_BARRIERS: barriers.length ? stripBarrierLeadInList(barriers) : ['']
       };
     };
 
@@ -1170,9 +1183,11 @@ function App() {
         return {
           id: row.id || `row-${idx}`,
           component: row.component,
-          baselineText: row.baselineText || '',
-          transcriptModification: row.transcriptModification || '',
-          reviewerEdit: row.reviewerEdit || row.transcriptModification || '',
+          baselineText: row.component === 'Barrier' ? stripBarrierLeadIn(row.baselineText || '') : (row.baselineText || ''),
+          transcriptModification: row.component === 'Barrier' ? stripBarrierLeadIn(row.transcriptModification || '') : (row.transcriptModification || ''),
+          reviewerEdit: row.component === 'Barrier'
+            ? stripBarrierLeadIn(row.reviewerEdit || row.transcriptModification || '')
+            : (row.reviewerEdit || row.transcriptModification || ''),
           type,
           transcriptEvidence: row.transcriptEvidence || '',
           publicSupport: row.publicSupport || '',
@@ -1765,7 +1780,7 @@ function App() {
                       {baselineStatement.SPECIFIC_BARRIERS?.length ? (
                         <ul className="list-disc pl-5 space-y-1">
                           {baselineStatement.SPECIFIC_BARRIERS.slice(0, 4).map((barrier, idx) => (
-                            <li key={idx}>{barrier}</li>
+                            <li key={idx}>{stripBarrierLeadIn(barrier)}</li>
                           ))}
                         </ul>
                       ) : (
@@ -1947,7 +1962,7 @@ function App() {
                       type="text"
                       className="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
                       placeholder={t.founder.placeholders.barrier}
-                      value={barrier}
+                      value={stripBarrierLeadIn(barrier)}
                       onChange={(e) => {
                         const updated = [...founderInput.SPECIFIC_BARRIERS];
                         updated[idx] = e.target.value;
