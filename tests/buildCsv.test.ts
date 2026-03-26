@@ -28,7 +28,7 @@ const sampleRows: ComparisonRow[] = [
 describe('buildCsv', () => {
   it('includes headers and data for part1 and comparison rows', () => {
     const csv = buildCsv(samplePart1, sampleRows);
-    expect(csv.split('\n')[0]).toBe('Section,Component,Original,Modification,Type,Evidence,Public Source Check,Accepted,Notes');
+    expect(csv.split('\n')[0]).toBe('Section,Component,Original,Modification,Interviewer Edit,Type,Evidence,Public Source Check,Accepted,Notes');
     expect(csv).toContain('Part 1 (Discovery)');
     expect(csv).toContain('Desc 1');
     expect(csv).toContain('Note 1');

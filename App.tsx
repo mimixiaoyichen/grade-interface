@@ -35,6 +35,11 @@ import Part2Comparison from './components/Part2Comparison';
 import ConsentModal from './components/ConsentModal';
 import GuidedTour, { TourStep as GuidedTourStep } from './components/GuidedTour';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
+import {
+  createShuffledBaselineReviewFieldOrder,
+  resolveBaselineReviewFieldOrder,
+  type BaselineReviewField
+} from './utils/baselineReviewOrder';
 
 const getComponentText = (
   source: BaselineStatement | null | undefined,
@@ -351,6 +356,7 @@ function App() {
 
   // Step 3: Baseline
   const [baselineStatement, setBaselineStatement] = useState<BaselineStatement | null>(null);
+  const [baselineReviewFieldOrder, setBaselineReviewFieldOrder] = useState<BaselineReviewField[]>([]);
   const [baselineGenerated, setBaselineGenerated] = useState<BaselineStatement | null>(null);
   const [baselineLLM, setBaselineLLM] = useState<BaselineStatement | null>(null);
   const [baselineLLMRaw4o, setBaselineLLMRaw4o] = useState<BaselineStatement | null>(null);
@@ -521,6 +527,7 @@ function App() {
     setBaselineSource(combinedSource);
     setHasFetchedPublicInfo(true);
     setBaselineStatement(sample.baseline);
+    setBaselineReviewFieldOrder(createShuffledBaselineReviewFieldOrder());
     setBaselineGenerated(sample.baseline);
     setBaselineLLM(sample.baseline);
     setBaselineLLMRaw4o(sample.baseline);
@@ -554,6 +561,7 @@ function App() {
       baselineSource,
       hasFetchedPublicInfo,
       baselineStatement,
+      baselineReviewFieldOrder,
       baselineGenerated,
       baselineLLM,
       baselineLLMRaw4o,
@@ -601,6 +609,7 @@ function App() {
     setBaselineSource(snapshot.baselineSource);
     setHasFetchedPublicInfo(snapshot.hasFetchedPublicInfo);
     setBaselineStatement(snapshot.baselineStatement);
+    setBaselineReviewFieldOrder(snapshot.baselineReviewFieldOrder || []);
     setBaselineGenerated(snapshot.baselineGenerated);
     setBaselineLLM(snapshot.baselineLLM);
     setBaselineLLMRaw4o(snapshot.baselineLLMRaw4o || null);
@@ -811,6 +820,7 @@ function App() {
       setPitchbookInfo('');
       setFounderInput(INITIAL_STATEMENT);
       setBaselineStatement(null);
+      setBaselineReviewFieldOrder([]);
       setBaselineGenerated(null);
       setBaselineLLM(null);
       setBaselineLLMRaw4o(null);
@@ -848,6 +858,7 @@ function App() {
       setPublicInfo(fetchedText);
       setHasFetchedPublicInfo(true);
       setBaselineStatement(null);
+      setBaselineReviewFieldOrder([]);
       setBaselineGenerated(null);
       setBaselineLLM(null);
       setBaselineLLMRaw4o(null);
@@ -888,6 +899,7 @@ function App() {
       setBaselineLLMRaw4o(res);
       setBaselineGpt52Layer(null);
       setBaselineStatement(res);
+      setBaselineReviewFieldOrder(createShuffledBaselineReviewFieldOrder());
       setBaselineGenerated(res);
       setBaselineLLM(res);
       setBaselineSource(trimmedPublicInfo);
@@ -1090,6 +1102,7 @@ function App() {
       comparisonRows,
       supportByRow,
       founderInput,
+      baselineReviewFieldOrder,
       part2Notes,
       transcript,
       splitData,
@@ -1212,6 +1225,9 @@ function App() {
     const founderBaseline = normalizeBaseline(
       statements.interviewer_review_page3
     );
+    const importedFieldOrder = resolveBaselineReviewFieldOrder(
+      metadata.baselineReviewFieldOrder
+    );
 
     setHasFetchedPublicInfo(Boolean(fetchedPublic || pitchbookText || combinedPublic || llmBaseline || founderBaseline));
     setBaselineLLM(llmBaseline);
@@ -1219,6 +1235,7 @@ function App() {
     setBaselineLLMRaw4o(llmBaselineRaw4o || llmBaseline);
     setBaselineGpt52Layer(gpt52Layer);
     setBaselineStatement(founderBaseline || llmBaseline || importedFounderInput);
+    setBaselineReviewFieldOrder(importedFieldOrder);
     setBaselineLocale(locale);
     setIsStatementOpen(true);
 
@@ -1978,6 +1995,7 @@ function App() {
           <div data-tour-id="tour-baseline-review">
             <BaselineReview 
               baseline={baselineStatement}
+              fieldOrder={baselineReviewFieldOrder}
               onUpdate={(updated) => {
                 setBaselineStatement(updated);
                 // Invalidate Comparison since Baseline changed

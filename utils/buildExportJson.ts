@@ -1,4 +1,5 @@
 import { BaselineStatement, ComparisonRow, StatementResult, SupportRowState, TranscriptSplit } from '../types';
+import type { BaselineReviewField } from './baselineReviewOrder';
 
 export interface ExportOptions {
   companyUrl?: string;
@@ -13,6 +14,7 @@ export interface ExportOptions {
   comparisonRows?: ComparisonRow[];
   supportByRow?: Record<string, SupportRowState>;
   founderInput?: BaselineStatement;
+  baselineReviewFieldOrder?: BaselineReviewField[];
   part2Notes?: string;
   transcript?: string;
   splitData?: TranscriptSplit | null;
@@ -62,7 +64,8 @@ export const buildExportJson = (opts: ExportOptions) => {
       formatVersion: 1,
       exportedAt: new Date().toISOString(),
       companyUrl: opts.companyUrl || '',
-      publicInfoUsed: combinedPublic
+      publicInfoUsed: combinedPublic,
+      baselineReviewFieldOrder: opts.baselineReviewFieldOrder || []
     },
     public_info: {
       combined: combinedPublic,

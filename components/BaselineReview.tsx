@@ -2,9 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { BaselineStatement } from '../types';
 import { useT } from '../utils/strings';
+import { BASELINE_REVIEW_FIELDS, type BaselineReviewField } from '../utils/baselineReviewOrder';
 
 interface BaselineReviewProps {
   baseline: BaselineStatement;
+  fieldOrder: BaselineReviewField[];
   onUpdate: (updated: BaselineStatement) => void;
   onNext: () => void;
   onBack: () => void;
@@ -38,28 +40,17 @@ const ScriptDropdown: React.FC<{ title?: string; children: React.ReactNode }> = 
   );
 };
 
-type ContextField = { field: 'CUSTOMER_SEGMENT' | 'LIFE_BUSINESS_CONTEXT' | 'JOB_TO_BE_DONE'; labelKey: 'customer' | 'context' | 'goal' };
-
-const shuffle = <T,>(arr: T[]): T[] => {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+const CONTEXT_LABEL_KEYS: Record<BaselineReviewField, 'customer' | 'context' | 'goal'> = {
+  CUSTOMER_SEGMENT: 'customer',
+  LIFE_BUSINESS_CONTEXT: 'context',
+  JOB_TO_BE_DONE: 'goal'
 };
 
-const CONTEXT_FIELDS: ContextField[] = [
-  { field: 'CUSTOMER_SEGMENT', labelKey: 'customer' },
-  { field: 'LIFE_BUSINESS_CONTEXT', labelKey: 'context' },
-  { field: 'JOB_TO_BE_DONE', labelKey: 'goal' },
-];
-
-const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onNext, onBack }) => {
+const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, fieldOrder, onUpdate, onNext, onBack }) => {
   const [data, setData] = useState<BaselineStatement>(baseline);
-  const [shuffledFields] = useState<ContextField[]>(() => shuffle(CONTEXT_FIELDS));
   const t = useT().baselineReview;
   const common = useT().common;
+  const orderedFields = fieldOrder.length ? fieldOrder : BASELINE_REVIEW_FIELDS;
 
   useEffect(() => {
     setData(baseline);
@@ -104,9 +95,9 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, onUpdate, onN
       </div>
 
       <div className="space-y-6">
-        {shuffledFields.map(({ field, labelKey }) => (
+        {orderedFields.map((field) => (
           <div key={field}>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t.labels[labelKey]}</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t.labels[CONTEXT_LABEL_KEYS[field]]}</label>
             <textarea
               value={data[field] as string}
               onChange={(e) => handleChange(field, e.target.value)}
