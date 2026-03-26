@@ -1793,7 +1793,6 @@ function App() {
                 <ScriptDropdown>
                   <div className="text-sm text-gray-600 whitespace-pre-line">
             {stripIndent(t.founder.scripts.introduction)}
-            {stripIndent(t.founder.scripts.introduction)}
                   </div>
                 </ScriptDropdown>
               </div>
@@ -1808,7 +1807,6 @@ function App() {
 
                 <ScriptDropdown>
                   <div className="text-sm text-gray-600 whitespace-pre-line">
-      {stripIndent(t.founder.scripts.solution)}
       {stripIndent(t.founder.scripts.solution)}
                   </div>
                 </ScriptDropdown>
