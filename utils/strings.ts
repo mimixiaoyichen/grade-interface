@@ -27,6 +27,7 @@ export const translations = {
       founderInput: 'Founder Input',
       baselineReview: 'Review Baseline',
       transcriptUpload: 'Post-interview',
+      problemCharacteristics: 'Problem Characteristics',
       part2Comparison: 'Feedback'
     },
     errors: {
@@ -124,21 +125,16 @@ Briefly describe the problem statement framework using the following scripted in
 
 “Before we dive into the specific questions, I want to quickly explain the structure we’ll use. We follow a simple framework to construct a problem statement of your company. Our goal is to understand the problem your company solves from the customer’s point of view.
 
-We’ll walk through five elements:
-
-1. Solution means what you’ve built.
-
-2. Customer means who is your target customer.
-
-3. Customers’ Aspiration means what your customers are trying to accomplish.
-
-4. When does the Problem occur means the specific situation or moment when your customers experience the problem.
-
-5. Barriers means what prevents your customers from reaching their goals without your help.
+We’ll walk through five elements: The solution you've built, who your customers are, your customer's goals and aspirations, the context in which the problem arises, and the barriers that prevent your customers from achieving their goals without your help. 
 
 In the second part of this interview, we would like to show you a problem statement, similar to what we will generate together, that was developed by a Large Language Model for your company based on public information. We will ask for your feedback on this statement and how you would revise it based on your perspective as the founder.
 
-Lastly, for this conversation, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.”  
+Lastly, we will ask you some questions about the characteristics of the problem your startup solves, these questions are not meant to be evaluative in any way—they are just to help us categorize the nature of the problems founders tackle.
+
+For this conversation, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.
+
+(Ask founder if they have any questions before proceeding)
+Do you have any questions about the process? Great, let’s get started"
 `,
         solution: `Lead Question (read verbatim):
 “Let’s begin with what you’ve built. How would you describe your product or solution?”
@@ -185,7 +181,7 @@ Reflective statement before transition:  “You mentioned ___ as the main barrie
 
 Now let’s move on to the next variable.”  
 Transitory wording between part 1 & part 2: 
-“Awesome - now we have finished part 1 where you created your problem statement. Let’s proceed to the second part.”  
+“Awesome - now we have finished part 1 where you created your problem statement. Let’s proceed to the next part.”  
 `
       }
     },
@@ -193,7 +189,7 @@ Transitory wording between part 1 & part 2:
       title: '3. Review LLM-Generated Statement',
       description: 'This statement was generated from Public Information. Review and edit it before comparing it to the transcript.',
       draft: 'Draft Mode',
-      script: `Moving on to the next part of this interview, we’d like your reaction to a problem statement, similar to the one we just generated together, developed for your startup by an LLM using public information. Please evaluate how accurately the LLM generated problem statement is relative to publicly available information and how you would change the statement.`,
+      script: `Moving on to the next part of this interview, we’d like your reaction to a few components of the problem statement, similar to the one we just generated together, developed for your startup by an LLM using public information. Please evaluate how accurately the LLM generated problem statement is relative to publicly available information and how you would change the statement.`,
       labels: {
         solution: 'Solution',
         customer: 'Customer Segment',
@@ -524,6 +520,7 @@ Transitory wording between part 1 & part 2:
       founderInput: '创始人输入',
       baselineReview: '审核基线',
       transcriptUpload: '访谈后',
+      problemCharacteristics: '问题特征',
       part2Comparison: '反馈'
     },
     errors: {
