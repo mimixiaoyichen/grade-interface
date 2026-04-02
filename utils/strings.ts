@@ -201,6 +201,95 @@ Transitory wording between part 1 & part 2:
       back: 'Back',
       confirm: 'Continue →'
     },
+    problemCharacteristics: {
+      title: '4. Characterizing the Problem',
+      description: "Now that you've written your problem statement, we'd like to understand more about the nature of the problem your startup addresses. The following questions focus on different aspects of your customers' problems.",
+      groups: {
+        internal: 'Internal',
+        external: 'External'
+      },
+      barrierItems: {
+        informationSearch: {
+          label: 'Information & Search',
+          sub: 'Customers cannot easily find, access, or evaluate the right information or available options'
+        },
+        cognitiveEpistemic: {
+          label: 'Cognitive & Epistemic',
+          sub: 'Information exists but the customer struggles to understand or decide what to do with it'
+        },
+        behavioralMotivational: {
+          label: 'Behavioral & Motivational',
+          sub: 'Customers know what they should do but fail to take action (inertia, shame, avoidance)'
+        },
+        accessStructural: {
+          label: 'Access & Structural',
+          sub: 'Geographic unavailability, economic exclusion, regulatory or legal gatekeeping, infrastructure gaps'
+        },
+        marketCoordination: {
+          label: 'Market & Coordination',
+          sub: 'Multi-party misalignment, trust failures, switching costs, timing or liquidity problems'
+        },
+        socialRelational: {
+          label: 'Social & Relational',
+          sub: 'Customers depend on trust, relationships, or social norms that make the problem difficult to address'
+        }
+      },
+      questions: {
+        barrierTypes: {
+          title: 'Barrier Types (Internal vs External)',
+          prompt: 'What types of barriers prevent customers from achieving their goals if your solution did not exist? What specific obstacles stand in their way?'
+        },
+        frequency: {
+          title: 'Problem Frequency',
+          prompt: 'How frequently do your customers encounter this problem?',
+          options: [
+            'Low: Rare or occasional occurrence',
+            'Moderate: Occurs regularly but not constantly',
+            'High: Occurs frequently or as a persistent issue'
+          ]
+        },
+        urgency: {
+          title: 'Problem Urgency',
+          prompt: 'How quickly must this problem be resolved to avoid harm or negative outcomes?',
+          options: [
+            'Deferrable: Can be addressed later without significant consequences',
+            'Schedulable: Needs attention but can be planned in advance',
+            'Time-sensitive: Requires prompt action',
+            'Urgent: Requires immediate resolution'
+          ]
+        },
+        temporalFrame: {
+          title: 'Temporal Frame',
+          prompt: 'What is the time structure of this problem?',
+          options: [
+            'Continuous: Ongoing and persistent',
+            'Episodic: Recurs at intervals or under certain conditions',
+            'Discrete: One-time or event-based'
+          ]
+        },
+        goalOrientation: {
+          title: 'Goal Orientation',
+          prompt: 'What type of outcome are customers trying to achieve when addressing this problem?',
+          options: [
+            'Prevention: Avoid a negative outcome or decline',
+            'Promotion: Achieve growth, improvement, or gain',
+            'Maintenance: Sustain or stabilize an existing state'
+          ]
+        },
+        stakes: {
+          title: 'Stakes (Impact of Failure)',
+          prompt: 'How costly is a negative outcome if the problem is not solved?',
+          options: [
+            'Low: Limited consequences; minimal disruption to livelihood or well-being',
+            'High: Significant consequences (e.g., financial, legal, medical, or identity-related impact)'
+          ]
+        }
+      },
+      buttons: {
+        back: 'Back',
+        continue: 'Continue →'
+      }
+    },
     transcript: {
       title: '4. Post-interview (Upload Transcript)',
       description: 'Split into "Discovery" (Part 1) and "Feedback" (Part 2). Paste text or upload audio and we will transcribe with speaker diarization (auto-splits large files).',
@@ -676,6 +765,95 @@ Transitory wording between part 1 & part 2:
       addBarrier: '+ 添加障碍',
       back: '返回',
       confirm: '继续 →'
+    },
+    problemCharacteristics: {
+      title: '4. 问题特征',
+      description: '现在你已经写完问题陈述，我们希望进一步了解你的创业公司所解决问题的性质。下面的问题聚焦于客户问题的不同维度。',
+      groups: {
+        internal: '内部',
+        external: '外部'
+      },
+      barrierItems: {
+        informationSearch: {
+          label: '信息与搜索',
+          sub: '客户难以找到、获取或评估正确的信息或可用选项'
+        },
+        cognitiveEpistemic: {
+          label: '认知与判断',
+          sub: '信息虽然存在，但客户难以理解，或难以判断下一步该做什么'
+        },
+        behavioralMotivational: {
+          label: '行为与动机',
+          sub: '客户知道该做什么，但仍难以采取行动（如惯性、羞耻、回避）'
+        },
+        accessStructural: {
+          label: '获取与结构',
+          sub: '地理不可达、经济排斥、监管或法律门槛、基础设施缺口'
+        },
+        marketCoordination: {
+          label: '市场与协调',
+          sub: '多方失调、信任失败、转换成本、时机或流动性问题'
+        },
+        socialRelational: {
+          label: '社会与关系',
+          sub: '客户依赖信任、关系或社会规范，使问题更难解决'
+        }
+      },
+      questions: {
+        barrierTypes: {
+          title: '障碍类型（内部 vs 外部）',
+          prompt: '如果没有你的解决方案，哪些类型的障碍会阻止客户实现目标？具体有哪些阻碍？'
+        },
+        frequency: {
+          title: '问题频率',
+          prompt: '客户多频繁会遇到这个问题？',
+          options: [
+            '低：很少发生，或只是偶尔出现',
+            '中：会定期出现，但不是持续不断',
+            '高：频繁发生，或长期持续存在'
+          ]
+        },
+        urgency: {
+          title: '问题紧迫性',
+          prompt: '如果不及时解决，这个问题需要多快处理以避免伤害或负面后果？',
+          options: [
+            '可延后：稍后处理也不会造成明显后果',
+            '可安排：需要处理，但可以提前规划',
+            '时间敏感：需要尽快处理',
+            '紧急：需要立即解决'
+          ]
+        },
+        temporalFrame: {
+          title: '时间结构',
+          prompt: '这个问题在时间上属于哪种结构？',
+          options: [
+            '持续型：长期、持续存在',
+            '间歇型：在特定条件下周期性出现',
+            '离散型：一次性或事件触发'
+          ]
+        },
+        goalOrientation: {
+          title: '目标导向',
+          prompt: '客户在解决这个问题时，想实现的是哪一类结果？',
+          options: [
+            '预防：避免负面结果或下滑',
+            '促进：实现增长、改善或收益',
+            '维持：保持或稳定当前状态'
+          ]
+        },
+        stakes: {
+          title: '后果强度（失败影响）',
+          prompt: '如果问题得不到解决，负面结果的代价有多高？',
+          options: [
+            '低：后果有限，对生计或福祉影响较小',
+            '高：后果显著（例如财务、法律、医疗或身份层面的影响）'
+          ]
+        }
+      },
+      buttons: {
+        back: '返回',
+        continue: '继续 →'
+      }
     },
     transcript: {
       title: '4. 访谈后（上传访谈记录）',

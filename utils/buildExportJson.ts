@@ -1,5 +1,8 @@
 import { BaselineStatement, ComparisonRow, StatementResult, SupportRowState, TranscriptSplit } from '../types';
-import type { ProblemCharacteristicsData } from '../components/ProblemCharacteristics';
+import {
+  createProblemCharacteristicsData,
+  type ProblemCharacteristicsData
+} from './problemCharacteristics';
 
 export interface ExportOptions {
   companyUrl?: string;
@@ -59,7 +62,7 @@ export const buildExportJson = (opts: ExportOptions) => {
     }
   };
 
-  const pc = opts.problemCharacteristics;
+  const pc = opts.problemCharacteristics ? createProblemCharacteristicsData(opts.problemCharacteristics) : null;
   const problem_characteristics = pc ? {
     frequency: pc.q1,
     urgency: pc.q2,
