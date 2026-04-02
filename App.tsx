@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SplitVerifier from './components/SplitVerifier';
 import BaselineReview from './components/BaselineReview';
+import ProblemCharacteristics, { ProblemCharacteristicsData } from './components/ProblemCharacteristics';
 import ComparisonTable from './components/ComparisonTable';
 import {
   analyzeSegment, 
@@ -364,6 +365,9 @@ function App() {
   const [baselineGpt52Layer, setBaselineGpt52Layer] = useState<BaselineComponentLayerResult | null>(null);
   const [baselineSource, setBaselineSource] = useState<string>('');
   const [baselineLocale, setBaselineLocale] = useState<LocaleKey>('en');
+
+  // Step 3b: Problem Characteristics
+  const [problemCharacteristicsData, setProblemCharacteristicsData] = useState<ProblemCharacteristicsData | undefined>(undefined);
 
   // Step 4: Transcript Part 1
   const [transcript, setTranscript] = useState<string>('');
@@ -934,9 +938,9 @@ function App() {
     setStatus(AppStatus.IDLE); 
   };
 
-  // Step 3 -> Step 4
+  // Step 3 -> Step 3b
   const confirmBaseline = () => {
-    setStep(WizardStep.TRANSCRIPT_UPLOAD);
+    setStep(WizardStep.PROBLEM_CHARACTERISTICS);
   };
 
   // Step 4 Split Logic
@@ -984,7 +988,6 @@ function App() {
         Customer: ${founderInput.CUSTOMER_SEGMENT}
         Context: ${founderInput.LIFE_BUSINESS_CONTEXT}
         Goals: ${founderInput.JOB_TO_BE_DONE}
-        Barriers: ${founderInput.SPECIFIC_BARRIERS.join('; ')}
       `;
 
       const combinedInfo = getCombinedPublicInfo();
@@ -1009,7 +1012,7 @@ function App() {
         customers: raw.customers.map((i, idx) => ({ ...i, id: `${prefix}-c-${idx}`, isVerified: false, userNotes: '' })),
         contexts: raw.contexts.map((i, idx) => ({ ...i, id: `${prefix}-ctx-${idx}`, isVerified: false, userNotes: '' })),
         goals: raw.goals.map((i, idx) => ({ ...i, id: `${prefix}-g-${idx}`, isVerified: false, userNotes: '' })),
-        barriers: raw.barriers.map((i, idx) => ({ ...i, id: `${prefix}-b-${idx}`, isVerified: false, userNotes: '' })),
+        barriers: [],
         draftStatement: raw.finalStatement
       });
 
@@ -1021,22 +1024,19 @@ function App() {
       const getReviewedComponentText = (component: ComparisonRow['component']) =>
         getComponentText(baselineStatement, component);
 
-      const rowsWithIds = comparisonResult.value.rows.map((r, i) => ({
-        ...r,
-        baselineText: getGeneratedComponentText(r.component) || r.baselineText,
-        id: `row-${i}`,
-        isAccepted: false,
-        transcriptModification: r.component === 'Barrier'
-          ? stripBarrierLeadIn(r.transcriptModification)
-          : r.transcriptModification,
-        reviewerEdit: r.component === 'Barrier'
-          ? stripBarrierLeadIn(getReviewedComponentText(r.component) || r.transcriptModification)
-          : (getReviewedComponentText(r.component) || r.transcriptModification),
-        reviewerNotes: '',
-        reviewerDecision: undefined
-      }));
+      const rowsWithIds = comparisonResult.value.rows
+        .filter((r) => r.component !== 'Barrier')
+        .map((r, i) => ({
+          ...r,
+          baselineText: getGeneratedComponentText(r.component) || r.baselineText,
+          id: `row-${i}`,
+          isAccepted: false,
+          reviewerEdit: getReviewedComponentText(r.component) || r.transcriptModification,
+          reviewerNotes: '',
+          reviewerDecision: undefined
+        }));
 
-      const requiredComponents: ComparisonRow['component'][] = ['Solution', 'Customer', 'Context', 'Goal', 'Barrier'];
+      const requiredComponents: ComparisonRow['component'][] = ['Solution', 'Customer', 'Context', 'Goal'];
       const componentsPresent = new Set(rowsWithIds.map((r) => r.component));
 
       const buildFallbackRow = (component: ComparisonRow['component']): ComparisonRow => ({
@@ -1121,7 +1121,8 @@ function App() {
       splitData,
       founderRecordConsent,
       internationalFounder,
-      founderDataConsent
+      founderDataConsent,
+      problemCharacteristics: problemCharacteristicsData ?? null
     });
     const filename = buildFilename('json');
     const blob = new Blob([json], { type: 'application/json' });
@@ -1175,7 +1176,7 @@ function App() {
 
     const normalizeComparisonRows = (rawRows: any[]): ComparisonRow[] => {
       if (!Array.isArray(rawRows)) return [];
-      const allowedComponents = new Set(['Solution', 'Customer', 'Context', 'Goal', 'Barrier']);
+      const allowedComponents = new Set(['Solution', 'Customer', 'Context', 'Goal']);
       const allowedTypes = new Set(['Modification', 'Omission', 'Hallucination', 'Confirmation']);
       return rawRows.map((row, idx) => {
         if (!row || !allowedComponents.has(row.component)) return null;
@@ -1374,6 +1375,7 @@ function App() {
     { id: WizardStep.PUBLIC_INFO, label: t.steps.publicInfo },
     { id: WizardStep.FOUNDER_INPUT, label: t.steps.founderInput },
     { id: WizardStep.BASELINE_REVIEW, label: t.steps.baselineReview },
+    { id: WizardStep.PROBLEM_CHARACTERISTICS, label: t.steps.problemCharacteristics },
     { id: WizardStep.TRANSCRIPT_UPLOAD, label: t.steps.transcriptUpload },
     { id: WizardStep.PART2_COMPARISON, label: t.steps.part2Comparison }
   ];
@@ -1382,6 +1384,7 @@ function App() {
     if (id === WizardStep.PUBLIC_INFO) return true;
     if (id === WizardStep.FOUNDER_INPUT) return Boolean(baselineStatement);
     if (id === WizardStep.BASELINE_REVIEW) return Boolean(baselineStatement);
+    if (id === WizardStep.PROBLEM_CHARACTERISTICS) return Boolean(baselineStatement);
     if (id === WizardStep.TRANSCRIPT_UPLOAD) return Boolean(baselineStatement);
     if (id === WizardStep.PART2_COMPARISON) return comparisonRows.length > 0;
     return false;
@@ -2022,6 +2025,18 @@ function App() {
           </div>
         )}
 
+        {/* STEP 3b: PROBLEM CHARACTERISTICS */}
+        {step === WizardStep.PROBLEM_CHARACTERISTICS && (
+          <ProblemCharacteristics
+            initialData={problemCharacteristicsData}
+            onNext={(data) => {
+              setProblemCharacteristicsData(data);
+              setStep(WizardStep.TRANSCRIPT_UPLOAD);
+            }}
+            onBack={() => setStep(WizardStep.BASELINE_REVIEW)}
+          />
+        )}
+
         {/* STEP 4: TRANSCRIPT UPLOAD & SPLIT */}
         {step === WizardStep.TRANSCRIPT_UPLOAD && (
           <div className="space-y-6" data-tour-id="tour-transcript-upload">
@@ -2081,7 +2096,7 @@ function App() {
                   data-tour-id="tour-transcript-editor"
                 />
                 <div className="flex justify-between">
-                  <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.transcript.back}</button>
+                  <button onClick={() => setStep(WizardStep.PROBLEM_CHARACTERISTICS)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.transcript.back}</button>
                   <button 
                     onClick={startSplit}
                     disabled={status === AppStatus.PROCESSING || !transcript || isTranscribingAudio}

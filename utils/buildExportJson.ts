@@ -1,5 +1,9 @@
 import { BaselineStatement, ComparisonRow, StatementResult, SupportRowState, TranscriptSplit } from '../types';
 import type { BaselineReviewField } from './baselineReviewOrder';
+import {
+  createProblemCharacteristicsData,
+  type ProblemCharacteristicsData
+} from './problemCharacteristics';
 
 export interface ExportOptions {
   companyUrl?: string;
@@ -21,6 +25,7 @@ export interface ExportOptions {
   founderRecordConsent?: boolean;
   internationalFounder?: boolean;
   founderDataConsent?: boolean;
+  problemCharacteristics?: ProblemCharacteristicsData | null;
 }
 
 const compactJoin = (parts: Array<string | undefined | null>) =>
@@ -59,6 +64,16 @@ export const buildExportJson = (opts: ExportOptions) => {
     }
   };
 
+  const pc = opts.problemCharacteristics ? createProblemCharacteristicsData(opts.problemCharacteristics) : null;
+  const problem_characteristics = pc ? {
+    frequency: pc.q1,
+    urgency: pc.q2,
+    temporal_frame: pc.q3,
+    barrier_types: Object.keys(pc.q4).filter((k) => Boolean(pc.q4[k])),
+    goal_orientation: pc.q5,
+    stakes: pc.q6
+  } : null;
+
   const payload = {
     metadata: {
       formatVersion: 1,
@@ -85,7 +100,8 @@ export const buildExportJson = (opts: ExportOptions) => {
       part1: opts.splitData?.part1 || '',
       part2: opts.splitData?.part2 || '',
       splitReason: opts.splitData?.reasoning || ''
-    }
+    },
+    problem_characteristics
   };
 
   return JSON.stringify(payload, null, 2);

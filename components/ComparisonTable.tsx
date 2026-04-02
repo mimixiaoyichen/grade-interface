@@ -266,7 +266,6 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
       {renderGroup("Customer")}
       {renderGroup("Context")}
       {renderGroup("Goal")}
-      {renderGroup("Barrier")}
     </div>
   );
 };
