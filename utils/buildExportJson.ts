@@ -66,12 +66,12 @@ export const buildExportJson = (opts: ExportOptions) => {
 
   const pc = opts.problemCharacteristics ? createProblemCharacteristicsData(opts.problemCharacteristics) : null;
   const problem_characteristics = pc ? {
-    frequency: pc.q1,
-    urgency: pc.q2,
-    temporal_frame: pc.q3,
-    barrier_types: Object.keys(pc.q4).filter((k) => Boolean(pc.q4[k])),
-    goal_orientation: pc.q5,
-    stakes: pc.q6
+    information_intensity: pc.q1,
+    frequency: pc.q2,
+    stakes: pc.q3,
+    expert_dependency: pc.q4,
+    emotional_valence: pc.q5,
+    problem_discovery: pc.q6
   } : null;
 
   const payload = {

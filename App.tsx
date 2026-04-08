@@ -37,6 +37,8 @@ import ConsentModal from './components/ConsentModal';
 import GuidedTour, { TourStep as GuidedTourStep } from './components/GuidedTour';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
 import { stripBarrierLeadIn, stripBarrierLeadInList } from './utils/barriers';
+import { createProblemCharacteristicsData } from './utils/problemCharacteristics';
+import { INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK } from './utils/featureFlags';
 import {
   createShuffledBaselineReviewFieldOrder,
   resolveBaselineReviewFieldOrder,
@@ -988,6 +990,7 @@ function App() {
         Customer: ${founderInput.CUSTOMER_SEGMENT}
         Context: ${founderInput.LIFE_BUSINESS_CONTEXT}
         Goals: ${founderInput.JOB_TO_BE_DONE}
+        ${INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK ? `Barriers: ${(founderInput.SPECIFIC_BARRIERS || []).join('; ')}` : ''}
       `;
 
       const combinedInfo = getCombinedPublicInfo();
@@ -1012,7 +1015,9 @@ function App() {
         customers: raw.customers.map((i, idx) => ({ ...i, id: `${prefix}-c-${idx}`, isVerified: false, userNotes: '' })),
         contexts: raw.contexts.map((i, idx) => ({ ...i, id: `${prefix}-ctx-${idx}`, isVerified: false, userNotes: '' })),
         goals: raw.goals.map((i, idx) => ({ ...i, id: `${prefix}-g-${idx}`, isVerified: false, userNotes: '' })),
-        barriers: [],
+        barriers: INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
+          ? raw.barriers.map((i, idx) => ({ ...i, id: `${prefix}-b-${idx}`, isVerified: false, userNotes: '' }))
+          : [],
         draftStatement: raw.finalStatement
       });
 
@@ -1025,7 +1030,7 @@ function App() {
         getComponentText(baselineStatement, component);
 
       const rowsWithIds = comparisonResult.value.rows
-        .filter((r) => r.component !== 'Barrier')
+        .filter((r) => INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK || r.component !== 'Barrier')
         .map((r, i) => ({
           ...r,
           baselineText: getGeneratedComponentText(r.component) || r.baselineText,
@@ -1036,7 +1041,9 @@ function App() {
           reviewerDecision: undefined
         }));
 
-      const requiredComponents: ComparisonRow['component'][] = ['Solution', 'Customer', 'Context', 'Goal'];
+      const requiredComponents: ComparisonRow['component'][] = INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
+        ? ['Solution', 'Customer', 'Context', 'Goal', 'Barrier']
+        : ['Solution', 'Customer', 'Context', 'Goal'];
       const componentsPresent = new Set(rowsWithIds.map((r) => r.component));
 
       const buildFallbackRow = (component: ComparisonRow['component']): ComparisonRow => ({
@@ -1176,7 +1183,11 @@ function App() {
 
     const normalizeComparisonRows = (rawRows: any[]): ComparisonRow[] => {
       if (!Array.isArray(rawRows)) return [];
-      const allowedComponents = new Set(['Solution', 'Customer', 'Context', 'Goal']);
+      const allowedComponents = new Set(
+        INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
+          ? ['Solution', 'Customer', 'Context', 'Goal', 'Barrier']
+          : ['Solution', 'Customer', 'Context', 'Goal']
+      );
       const allowedTypes = new Set(['Modification', 'Omission', 'Hallucination', 'Confirmation']);
       return rawRows.map((row, idx) => {
         if (!row || !allowedComponents.has(row.component)) return null;
@@ -1326,6 +1337,24 @@ function App() {
     setInternationalFounder(importedInternational);
     setFounderDataConsent(importedInternational ? importedDataConsent : false);
     setIsConsentOpen(false);
+
+    const normalizePcField = (value: any) => {
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string' && value.trim().length > 0) return [value];
+      return [];
+    };
+    const pcBlock = data?.problem_characteristics || data?.problemCharacteristics || null;
+    const importedProblemCharacteristics = pcBlock
+      ? createProblemCharacteristicsData({
+          q1: normalizePcField(pcBlock.information_intensity),
+          q2: normalizePcField(pcBlock.frequency),
+          q3: normalizePcField(pcBlock.stakes),
+          q4: normalizePcField(pcBlock.expert_dependency),
+          q5: normalizePcField(pcBlock.emotional_valence),
+          q6: typeof pcBlock.problem_discovery === 'string' ? pcBlock.problem_discovery : ''
+        })
+      : undefined;
+    setProblemCharacteristicsData(importedProblemCharacteristics);
 
     setComponentEvidence(null);
     setShowGuideGlow(false);

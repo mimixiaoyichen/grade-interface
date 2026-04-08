@@ -2,9 +2,9 @@ export interface ProblemCharacteristicsData {
   q1: string[];
   q2: string[];
   q3: string[];
-  q4: Record<string, string>;
+  q4: string[];
   q5: string[];
-  q6: string[];
+  q6: string;
 }
 
 const normalizeSingleSelect = (value: unknown): string[] => {
@@ -17,26 +17,15 @@ const normalizeSingleSelect = (value: unknown): string[] => {
   return [];
 };
 
-const normalizeBarrierSelections = (value: unknown): Record<string, string> => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-
-  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>((acc, [key, raw]) => {
-    if (typeof raw === 'string' && raw.trim().length > 0) {
-      acc[key] = raw;
-    }
-    return acc;
-  }, {});
-};
-
 export const createProblemCharacteristicsData = (
   initialData?: Partial<ProblemCharacteristicsData> | null
 ): ProblemCharacteristicsData => ({
   q1: normalizeSingleSelect(initialData?.q1),
   q2: normalizeSingleSelect(initialData?.q2),
   q3: normalizeSingleSelect(initialData?.q3),
-  q4: normalizeBarrierSelections(initialData?.q4),
+  q4: normalizeSingleSelect(initialData?.q4),
   q5: normalizeSingleSelect(initialData?.q5),
-  q6: normalizeSingleSelect(initialData?.q6)
+  q6: typeof initialData?.q6 === 'string' ? initialData.q6 : ''
 });
 
 export const toggleSingleSelect = (current: string[], option: string): string[] =>
