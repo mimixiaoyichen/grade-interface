@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { ComparisonRow, SupportCheckItem, SupportRowState } from '../types';
 import { useT } from '../utils/strings';
 import { stripBarrierLeadIn } from '../utils/barriers';
+import { INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK } from '../utils/featureFlags';
 
 interface ComparisonTableProps {
   rows: ComparisonRow[];
@@ -266,6 +267,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({ rows, onUpdate, rende
       {renderGroup("Customer")}
       {renderGroup("Context")}
       {renderGroup("Goal")}
+      {INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK ? renderGroup("Barrier") : null}
     </div>
   );
 };

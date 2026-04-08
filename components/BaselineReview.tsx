@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { BaselineStatement } from '../types';
 import { useT } from '../utils/strings';
 import { BASELINE_REVIEW_FIELDS, type BaselineReviewField } from '../utils/baselineReviewOrder';
+import { INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK } from '../utils/featureFlags';
+import { stripBarrierLeadIn, stripBarrierLeadInList } from '../utils/barriers';
 
 interface BaselineReviewProps {
   baseline: BaselineStatement;
@@ -50,14 +52,19 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, fieldOrder, o
   const [data, setData] = useState<BaselineStatement>(baseline);
   const t = useT().baselineReview;
   const common = useT().common;
+  const founderText = useT().founder;
   const orderedFields = fieldOrder.length ? fieldOrder : BASELINE_REVIEW_FIELDS;
+  const showBarriers = INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK;
 
   useEffect(() => {
     setData(baseline);
   }, [baseline]);
 
   const handleChange = (field: keyof BaselineStatement, value: string | string[]) => {
-    const newData = { ...data, [field]: value };
+    const normalizedValue = field === 'SPECIFIC_BARRIERS'
+      ? stripBarrierLeadInList(value as string[])
+      : value;
+    const newData = { ...data, [field]: normalizedValue };
     setData(newData);
     onUpdate(newData);
   };
@@ -100,6 +107,50 @@ const BaselineReview: React.FC<BaselineReviewProps> = ({ baseline, fieldOrder, o
             rows={5}
           />
         </div>
+
+        {showBarriers && (
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{t.labels.barriers}</label>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => handleChange('SPECIFIC_BARRIERS', [
+                  ...(data.SPECIFIC_BARRIERS || []),
+                  ''
+                ])}
+                className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+              >
+                {t.addBarrier}
+              </button>
+              {(data.SPECIFIC_BARRIERS || []).map((barrier, idx) => (
+                <div key={idx} className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    value={stripBarrierLeadIn(barrier)}
+                    onChange={(e) => {
+                      const updated = [...(data.SPECIFIC_BARRIERS || [])];
+                      updated[idx] = e.target.value;
+                      handleChange('SPECIFIC_BARRIERS', updated);
+                    }}
+                    placeholder={founderText.placeholders.barrier}
+                    className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = (data.SPECIFIC_BARRIERS || []).filter((_, i) => i !== idx);
+                      handleChange('SPECIFIC_BARRIERS', updated);
+                    }}
+                    className="text-gray-400 hover:text-red-500 px-2"
+                    aria-label="Remove barrier"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 pt-6 border-t border-gray-100 flex justify-between">

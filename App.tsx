@@ -38,6 +38,11 @@ import GuidedTour, { TourStep as GuidedTourStep } from './components/GuidedTour'
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
 import { stripBarrierLeadIn, stripBarrierLeadInList } from './utils/barriers';
 import {
+  parseImportedProblemCharacteristics,
+  type ProblemCharacteristicsRaw
+} from './utils/problemCharacteristics';
+import { INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK } from './utils/featureFlags';
+import {
   createShuffledBaselineReviewFieldOrder,
   resolveBaselineReviewFieldOrder,
   type BaselineReviewField
@@ -368,6 +373,7 @@ function App() {
 
   // Step 3b: Problem Characteristics
   const [problemCharacteristicsData, setProblemCharacteristicsData] = useState<ProblemCharacteristicsData | undefined>(undefined);
+  const [problemCharacteristicsRaw, setProblemCharacteristicsRaw] = useState<ProblemCharacteristicsRaw | null>(null);
 
   // Step 4: Transcript Part 1
   const [transcript, setTranscript] = useState<string>('');
@@ -538,6 +544,8 @@ function App() {
     setBaselineLLMRaw4o(sample.baseline);
     setBaselineGpt52Layer(null);
     setFounderInput(sample.baseline);
+    setProblemCharacteristicsData(undefined);
+    setProblemCharacteristicsRaw(null);
     setTranscript(sample.transcript);
     setDiarizedPreview(sample.transcript);
     setSplitData(null);
@@ -572,6 +580,8 @@ function App() {
       baselineLLMRaw4o,
       baselineGpt52Layer,
       founderInput,
+      problemCharacteristicsData,
+      problemCharacteristicsRaw,
       transcript,
       splitData,
       part1Result,
@@ -620,6 +630,8 @@ function App() {
     setBaselineLLMRaw4o(snapshot.baselineLLMRaw4o || null);
     setBaselineGpt52Layer(snapshot.baselineGpt52Layer || null);
     setFounderInput(snapshot.founderInput);
+    setProblemCharacteristicsData(snapshot.problemCharacteristicsData);
+    setProblemCharacteristicsRaw(snapshot.problemCharacteristicsRaw || null);
     setTranscript(snapshot.transcript);
     setSplitData(snapshot.splitData);
     setPart1Result(snapshot.part1Result);
@@ -831,6 +843,8 @@ function App() {
       setBaselineLLMRaw4o(null);
       setBaselineGpt52Layer(null);
       setBaselineSource('');
+      setProblemCharacteristicsData(undefined);
+      setProblemCharacteristicsRaw(null);
       setTranscript('');
       setSplitData(null);
       setPart1Result(null);
@@ -869,6 +883,8 @@ function App() {
       setBaselineLLMRaw4o(null);
       setBaselineGpt52Layer(null);
       setBaselineSource('');
+      setProblemCharacteristicsData(undefined);
+      setProblemCharacteristicsRaw(null);
       setStatus(AppStatus.SUCCESS);
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -988,6 +1004,7 @@ function App() {
         Customer: ${founderInput.CUSTOMER_SEGMENT}
         Context: ${founderInput.LIFE_BUSINESS_CONTEXT}
         Goals: ${founderInput.JOB_TO_BE_DONE}
+        ${INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK ? `Barriers: ${(founderInput.SPECIFIC_BARRIERS || []).join('; ')}` : ''}
       `;
 
       const combinedInfo = getCombinedPublicInfo();
@@ -1012,7 +1029,9 @@ function App() {
         customers: raw.customers.map((i, idx) => ({ ...i, id: `${prefix}-c-${idx}`, isVerified: false, userNotes: '' })),
         contexts: raw.contexts.map((i, idx) => ({ ...i, id: `${prefix}-ctx-${idx}`, isVerified: false, userNotes: '' })),
         goals: raw.goals.map((i, idx) => ({ ...i, id: `${prefix}-g-${idx}`, isVerified: false, userNotes: '' })),
-        barriers: [],
+        barriers: INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
+          ? raw.barriers.map((i, idx) => ({ ...i, id: `${prefix}-b-${idx}`, isVerified: false, userNotes: '' }))
+          : [],
         draftStatement: raw.finalStatement
       });
 
@@ -1025,7 +1044,7 @@ function App() {
         getComponentText(baselineStatement, component);
 
       const rowsWithIds = comparisonResult.value.rows
-        .filter((r) => r.component !== 'Barrier')
+        .filter((r) => INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK || r.component !== 'Barrier')
         .map((r, i) => ({
           ...r,
           baselineText: getGeneratedComponentText(r.component) || r.baselineText,
@@ -1036,7 +1055,9 @@ function App() {
           reviewerDecision: undefined
         }));
 
-      const requiredComponents: ComparisonRow['component'][] = ['Solution', 'Customer', 'Context', 'Goal'];
+      const requiredComponents: ComparisonRow['component'][] = INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
+        ? ['Solution', 'Customer', 'Context', 'Goal', 'Barrier']
+        : ['Solution', 'Customer', 'Context', 'Goal'];
       const componentsPresent = new Set(rowsWithIds.map((r) => r.component));
 
       const buildFallbackRow = (component: ComparisonRow['component']): ComparisonRow => ({
@@ -1122,7 +1143,8 @@ function App() {
       founderRecordConsent,
       internationalFounder,
       founderDataConsent,
-      problemCharacteristics: problemCharacteristicsData ?? null
+      problemCharacteristics: problemCharacteristicsData ?? null,
+      problemCharacteristicsRaw
     });
     const filename = buildFilename('json');
     const blob = new Blob([json], { type: 'application/json' });
@@ -1176,7 +1198,11 @@ function App() {
 
     const normalizeComparisonRows = (rawRows: any[]): ComparisonRow[] => {
       if (!Array.isArray(rawRows)) return [];
-      const allowedComponents = new Set(['Solution', 'Customer', 'Context', 'Goal']);
+      const allowedComponents = new Set(
+        INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
+          ? ['Solution', 'Customer', 'Context', 'Goal', 'Barrier']
+          : ['Solution', 'Customer', 'Context', 'Goal']
+      );
       const allowedTypes = new Set(['Modification', 'Omission', 'Hallucination', 'Confirmation']);
       return rawRows.map((row, idx) => {
         if (!row || !allowedComponents.has(row.component)) return null;
@@ -1326,6 +1352,11 @@ function App() {
     setInternationalFounder(importedInternational);
     setFounderDataConsent(importedInternational ? importedDataConsent : false);
     setIsConsentOpen(false);
+
+    const pcBlock = data?.problem_characteristics || data?.problemCharacteristics || null;
+    const importedProblemCharacteristics = parseImportedProblemCharacteristics(pcBlock);
+    setProblemCharacteristicsData(importedProblemCharacteristics.data);
+    setProblemCharacteristicsRaw(importedProblemCharacteristics.rawLegacy);
 
     setComponentEvidence(null);
     setShowGuideGlow(false);
@@ -2031,6 +2062,7 @@ function App() {
             initialData={problemCharacteristicsData}
             onNext={(data) => {
               setProblemCharacteristicsData(data);
+              setProblemCharacteristicsRaw(null);
               setStep(WizardStep.TRANSCRIPT_UPLOAD);
             }}
             onBack={() => setStep(WizardStep.BASELINE_REVIEW)}

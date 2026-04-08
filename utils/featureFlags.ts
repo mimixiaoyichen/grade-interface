@@ -1,0 +1,1 @@
+export const INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK = true;
