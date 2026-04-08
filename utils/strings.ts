@@ -735,53 +735,53 @@ Transitory wording between part 1 & part 2:
     },
     problemCharacteristics: {
       title: '4. 问题特征',
-      description: 'TODO: translate – now that the problem statement is written, we want to understand the nature of the problem your startup addresses.',
+      description: '现在你已经写完问题陈述，我们希望进一步了解你的创业公司所解决问题的性质。下面的问题聚焦于客户问题的不同维度。',
       questions: {
         informationIntensity: {
-          title: 'TODO: translate – Information Intensity',
-          prompt: 'TODO: translate – When customers face this problem, how much information do they need to bring together to handle it well?',
+          title: '信息复杂度',
+          prompt: '当客户面对这个问题时，需要整合多少信息才能把它处理好？',
           options: [
-            'TODO: translate – Low – A few clear factors matter; most people can reason through it on their own',
-            'TODO: translate – High – Many interacting factors; easy to make mistakes without deeper knowledge'
+            '低：只有少数几个清晰因素，大多数人自己就能判断',
+            '高：涉及许多相互影响的因素，没有更深知识时很容易出错'
           ]
         },
         frequency: {
-          title: 'TODO: translate – Frequency',
-          prompt: 'TODO: translate – How often does this problem show up in your customers’ lives or work?',
+          title: '出现频率',
+          prompt: '这个问题在客户的生活或工作中有多常见？',
           options: [
-            'TODO: translate – Rarely – Only a handful of times, tied to major events',
-            'TODO: translate – Sporadically – Comes up irregularly based on needs or situations',
-            'TODO: translate – Recurring – Happens regularly or on a predictable cycle'
+            '很少：只会在少数几次重大事件中出现',
+            '偶发：根据需求或情境不规律地出现',
+            '反复出现：经常发生，或按可预测的周期出现'
           ]
         },
         stakes: {
-          title: 'TODO: translate – Stakes',
-          prompt: 'TODO: translate – If this problem is handled poorly, what’s really at risk for the customer?',
+          title: '后果强度',
+          prompt: '如果这个问题处理不好，客户真正面临的风险是什么？',
           options: [
-            'TODO: translate – Low – Mostly inconvenience or small losses; easy to recover',
-            'TODO: translate – High – Meaningful consequences for finances, health, safety, or long-term outcomes'
+            '低：主要是不便或小损失，比较容易恢复',
+            '高：会对财务、健康、安全或长期结果造成实质影响'
           ]
         },
         expertDependency: {
-          title: 'TODO: translate – Expert Dependency',
-          prompt: 'TODO: translate – Before your solution existed, could customers realistically handle this on their own, or did they need an expert involved?',
+          title: '对专家的依赖',
+          prompt: '在你的解决方案出现之前，客户能否现实地靠自己处理这个问题，还是通常需要专家介入？',
           options: [
-            'TODO: translate – Self-serve – Customers can handle it on their own with basic tools or knowledge',
-            'TODO: translate – Expert-present – An expert is typically involved to get a good or safe outcome'
+            '可自助：客户凭借基础工具或知识就能自己处理',
+            '需要专家：通常需要专家参与，才能得到较好或安全的结果'
           ]
         },
         emotionalValence: {
-          title: 'TODO: translate – Emotional Valence',
-          prompt: 'TODO: translate – What’s the emotional experience for customers when they’re dealing with this problem?',
+          title: '情绪特征',
+          prompt: '客户在处理这个问题时，情绪体验通常是什么样的？',
           options: [
-            'TODO: translate – Appetitive – Motivated by growth, ambition, or achieving something positive',
-            'TODO: translate – Neutral – Primarily functional; about getting a task done efficiently',
-            'TODO: translate – Aversive – Driven by stress, risk, fear, or trying to avoid a negative outcome'
+            '趋近型：由成长、追求或实现积极结果所驱动',
+            '中性：主要是功能性的，重点是高效完成任务',
+            '回避型：由压力、风险、恐惧或避免负面结果所驱动'
           ]
         },
         problemDiscovery: {
-          title: 'TODO: translate – Problem Discovery',
-          prompt: 'TODO: translate – Can you tell us about how you discovered the problem you are now solving for your customers?'
+          title: '问题发现过程',
+          prompt: '你能介绍一下，是如何发现你现在正在为客户解决的这个问题的吗？'
         }
       },
       buttons: {

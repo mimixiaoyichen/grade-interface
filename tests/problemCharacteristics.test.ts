@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import buildExportJson from '../utils/buildExportJson';
 import {
   createProblemCharacteristicsData,
+  parseImportedProblemCharacteristics,
   toggleSingleSelect
 } from '../utils/problemCharacteristics';
 
@@ -51,5 +52,66 @@ describe('problem characteristics helpers', () => {
       emotional_valence: ['Low'],
       problem_discovery: 'Discovery notes'
     });
+  });
+
+  it('parses the current export schema into questionnaire state', () => {
+    const imported = parseImportedProblemCharacteristics({
+      information_intensity: ['High'],
+      frequency: ['Recurring'],
+      stakes: ['High'],
+      expert_dependency: ['Expert-present'],
+      emotional_valence: ['Aversive'],
+      problem_discovery: 'Found it through repeated customer calls'
+    });
+
+    expect(imported.rawLegacy).toBeNull();
+    expect(imported.data).toEqual({
+      q1: ['High'],
+      q2: ['Recurring'],
+      q3: ['High'],
+      q4: ['Expert-present'],
+      q5: ['Aversive'],
+      q6: 'Found it through repeated customer calls'
+    });
+  });
+
+  it('preserves legacy exports without forcing them into the new schema', () => {
+    const legacyBlock = {
+      frequency: ['Recurring'],
+      urgency: ['Urgent'],
+      temporal_frame: ['Continuous'],
+      barrier_types: ['Access & Structural'],
+      goal_orientation: ['Promotion'],
+      stakes: ['High']
+    };
+    const imported = parseImportedProblemCharacteristics(legacyBlock);
+
+    expect(imported.rawLegacy).toEqual(legacyBlock);
+    expect(imported.data).toEqual({
+      q1: [],
+      q2: ['Recurring'],
+      q3: ['High'],
+      q4: [],
+      q5: [],
+      q6: ''
+    });
+  });
+
+  it('falls back to the raw legacy block when no new questionnaire answers exist', () => {
+    const legacyBlock = {
+      frequency: ['Recurring'],
+      urgency: ['Urgent'],
+      temporal_frame: ['Continuous'],
+      barrier_types: ['Access & Structural'],
+      goal_orientation: ['Promotion'],
+      stakes: ['High']
+    };
+    const json = buildExportJson({
+      problemCharacteristics: createProblemCharacteristicsData(null),
+      problemCharacteristicsRaw: legacyBlock
+    });
+    const payload = JSON.parse(json);
+
+    expect(payload.problem_characteristics).toEqual(legacyBlock);
   });
 });

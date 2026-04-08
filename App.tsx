@@ -37,7 +37,10 @@ import ConsentModal from './components/ConsentModal';
 import GuidedTour, { TourStep as GuidedTourStep } from './components/GuidedTour';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
 import { stripBarrierLeadIn, stripBarrierLeadInList } from './utils/barriers';
-import { createProblemCharacteristicsData } from './utils/problemCharacteristics';
+import {
+  parseImportedProblemCharacteristics,
+  type ProblemCharacteristicsRaw
+} from './utils/problemCharacteristics';
 import { INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK } from './utils/featureFlags';
 import {
   createShuffledBaselineReviewFieldOrder,
@@ -370,6 +373,7 @@ function App() {
 
   // Step 3b: Problem Characteristics
   const [problemCharacteristicsData, setProblemCharacteristicsData] = useState<ProblemCharacteristicsData | undefined>(undefined);
+  const [problemCharacteristicsRaw, setProblemCharacteristicsRaw] = useState<ProblemCharacteristicsRaw | null>(null);
 
   // Step 4: Transcript Part 1
   const [transcript, setTranscript] = useState<string>('');
@@ -540,6 +544,8 @@ function App() {
     setBaselineLLMRaw4o(sample.baseline);
     setBaselineGpt52Layer(null);
     setFounderInput(sample.baseline);
+    setProblemCharacteristicsData(undefined);
+    setProblemCharacteristicsRaw(null);
     setTranscript(sample.transcript);
     setDiarizedPreview(sample.transcript);
     setSplitData(null);
@@ -574,6 +580,8 @@ function App() {
       baselineLLMRaw4o,
       baselineGpt52Layer,
       founderInput,
+      problemCharacteristicsData,
+      problemCharacteristicsRaw,
       transcript,
       splitData,
       part1Result,
@@ -622,6 +630,8 @@ function App() {
     setBaselineLLMRaw4o(snapshot.baselineLLMRaw4o || null);
     setBaselineGpt52Layer(snapshot.baselineGpt52Layer || null);
     setFounderInput(snapshot.founderInput);
+    setProblemCharacteristicsData(snapshot.problemCharacteristicsData);
+    setProblemCharacteristicsRaw(snapshot.problemCharacteristicsRaw || null);
     setTranscript(snapshot.transcript);
     setSplitData(snapshot.splitData);
     setPart1Result(snapshot.part1Result);
@@ -833,6 +843,8 @@ function App() {
       setBaselineLLMRaw4o(null);
       setBaselineGpt52Layer(null);
       setBaselineSource('');
+      setProblemCharacteristicsData(undefined);
+      setProblemCharacteristicsRaw(null);
       setTranscript('');
       setSplitData(null);
       setPart1Result(null);
@@ -871,6 +883,8 @@ function App() {
       setBaselineLLMRaw4o(null);
       setBaselineGpt52Layer(null);
       setBaselineSource('');
+      setProblemCharacteristicsData(undefined);
+      setProblemCharacteristicsRaw(null);
       setStatus(AppStatus.SUCCESS);
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -1129,7 +1143,8 @@ function App() {
       founderRecordConsent,
       internationalFounder,
       founderDataConsent,
-      problemCharacteristics: problemCharacteristicsData ?? null
+      problemCharacteristics: problemCharacteristicsData ?? null,
+      problemCharacteristicsRaw
     });
     const filename = buildFilename('json');
     const blob = new Blob([json], { type: 'application/json' });
@@ -1338,23 +1353,10 @@ function App() {
     setFounderDataConsent(importedInternational ? importedDataConsent : false);
     setIsConsentOpen(false);
 
-    const normalizePcField = (value: any) => {
-      if (Array.isArray(value)) return value;
-      if (typeof value === 'string' && value.trim().length > 0) return [value];
-      return [];
-    };
     const pcBlock = data?.problem_characteristics || data?.problemCharacteristics || null;
-    const importedProblemCharacteristics = pcBlock
-      ? createProblemCharacteristicsData({
-          q1: normalizePcField(pcBlock.information_intensity),
-          q2: normalizePcField(pcBlock.frequency),
-          q3: normalizePcField(pcBlock.stakes),
-          q4: normalizePcField(pcBlock.expert_dependency),
-          q5: normalizePcField(pcBlock.emotional_valence),
-          q6: typeof pcBlock.problem_discovery === 'string' ? pcBlock.problem_discovery : ''
-        })
-      : undefined;
-    setProblemCharacteristicsData(importedProblemCharacteristics);
+    const importedProblemCharacteristics = parseImportedProblemCharacteristics(pcBlock);
+    setProblemCharacteristicsData(importedProblemCharacteristics.data);
+    setProblemCharacteristicsRaw(importedProblemCharacteristics.rawLegacy);
 
     setComponentEvidence(null);
     setShowGuideGlow(false);
@@ -2060,6 +2062,7 @@ function App() {
             initialData={problemCharacteristicsData}
             onNext={(data) => {
               setProblemCharacteristicsData(data);
+              setProblemCharacteristicsRaw(null);
               setStep(WizardStep.TRANSCRIPT_UPLOAD);
             }}
             onBack={() => setStep(WizardStep.BASELINE_REVIEW)}

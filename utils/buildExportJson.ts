@@ -2,6 +2,8 @@ import { BaselineStatement, ComparisonRow, StatementResult, SupportRowState, Tra
 import type { BaselineReviewField } from './baselineReviewOrder';
 import {
   createProblemCharacteristicsData,
+  hasProblemCharacteristicsAnswers,
+  type ProblemCharacteristicsRaw,
   type ProblemCharacteristicsData
 } from './problemCharacteristics';
 
@@ -26,6 +28,7 @@ export interface ExportOptions {
   internationalFounder?: boolean;
   founderDataConsent?: boolean;
   problemCharacteristics?: ProblemCharacteristicsData | null;
+  problemCharacteristicsRaw?: ProblemCharacteristicsRaw | null;
 }
 
 const compactJoin = (parts: Array<string | undefined | null>) =>
@@ -65,14 +68,17 @@ export const buildExportJson = (opts: ExportOptions) => {
   };
 
   const pc = opts.problemCharacteristics ? createProblemCharacteristicsData(opts.problemCharacteristics) : null;
-  const problem_characteristics = pc ? {
-    information_intensity: pc.q1,
-    frequency: pc.q2,
-    stakes: pc.q3,
-    expert_dependency: pc.q4,
-    emotional_valence: pc.q5,
-    problem_discovery: pc.q6
-  } : null;
+  const normalizedPc = pc && hasProblemCharacteristicsAnswers(pc) ? pc : null;
+  const problem_characteristics = normalizedPc
+    ? {
+        information_intensity: normalizedPc.q1,
+        frequency: normalizedPc.q2,
+        stakes: normalizedPc.q3,
+        expert_dependency: normalizedPc.q4,
+        emotional_valence: normalizedPc.q5,
+        problem_discovery: normalizedPc.q6
+      }
+    : (opts.problemCharacteristicsRaw || null);
 
   const payload = {
     metadata: {
