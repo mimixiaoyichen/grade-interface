@@ -75,7 +75,6 @@ export const buildExportJson = (opts: ExportOptions) => {
         frequency: normalizedPc.q2,
         stakes: normalizedPc.q3,
         expert_dependency: normalizedPc.q4,
-        emotional_valence: normalizedPc.q5,
         problem_discovery: normalizedPc.q6
       }
     : (opts.problemCharacteristicsRaw || null);

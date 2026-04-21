@@ -3,7 +3,6 @@ export interface ProblemCharacteristicsData {
   q2: string[];
   q3: string[];
   q4: string[];
-  q5: string[];
   q6: string;
 }
 
@@ -26,7 +25,6 @@ export const createProblemCharacteristicsData = (
   q2: normalizeSingleSelect(initialData?.q2),
   q3: normalizeSingleSelect(initialData?.q3),
   q4: normalizeSingleSelect(initialData?.q4),
-  q5: normalizeSingleSelect(initialData?.q5),
   q6: typeof initialData?.q6 === 'string' ? initialData.q6 : ''
 });
 
@@ -36,7 +34,6 @@ export const toggleSingleSelect = (current: string[], option: string): string[] 
 const NEW_SCHEMA_KEYS = [
   'information_intensity',
   'expert_dependency',
-  'emotional_valence',
   'problem_discovery'
 ] as const;
 
@@ -46,7 +43,8 @@ const LEGACY_SCHEMA_KEYS = [
   'temporal_frame',
   'barrier_types',
   'goal_orientation',
-  'stakes'
+  'stakes',
+  'emotional_valence'
 ] as const;
 
 const isObjectRecord = (value: unknown): value is ProblemCharacteristicsRaw =>
@@ -60,7 +58,6 @@ export const hasProblemCharacteristicsAnswers = (data?: ProblemCharacteristicsDa
       data.q2.length ||
       data.q3.length ||
       data.q4.length ||
-      data.q5.length ||
       data.q6.trim()
     )
   );
@@ -80,7 +77,6 @@ export const parseImportedProblemCharacteristics = (
         q2: value.frequency,
         q3: value.stakes,
         q4: value.expert_dependency,
-        q5: value.emotional_valence,
         q6: typeof value.problem_discovery === 'string' ? value.problem_discovery : ''
       }),
       rawLegacy: null
