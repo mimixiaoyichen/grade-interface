@@ -48,7 +48,7 @@ const SectionLabel: React.FC<{ title: string; question: string }> = ({ title, qu
 );
 
 const ProblemCharacteristics: React.FC<Props> = ({ initialData, onNext, onBack }) => {
-  type SingleSelectKey = 'q1' | 'q2' | 'q3' | 'q4' | 'q5';
+  type SingleSelectKey = 'q1' | 'q2' | 'q3' | 'q4';
   const text = useT().problemCharacteristics;
   const [data, setData] = useState<ProblemCharacteristicsData>(
     () => createProblemCharacteristicsData(initialData)
@@ -124,20 +124,6 @@ const ProblemCharacteristics: React.FC<Props> = ({ initialData, onNext, onBack }
             options={text.questions.expertDependency.options}
             selected={data.q4}
             onChange={(option) => toggleQ('q4', option)}
-          />
-        </div>
-
-        {/* Q5 */}
-        <div className="py-8">
-          <SectionLabel
-            title={text.questions.emotionalValence.title}
-            question={text.questions.emotionalValence.prompt}
-          />
-          <SingleSelectGroup
-            name="emotional-valence"
-            options={text.questions.emotionalValence.options}
-            selected={data.q5}
-            onChange={(option) => toggleQ('q5', option)}
           />
         </div>
 

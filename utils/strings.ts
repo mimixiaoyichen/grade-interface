@@ -217,9 +217,8 @@ Transitory wording between part 1 & part 2:
           title: 'Frequency',
           prompt: 'How often does this problem show up in your customers’ lives or work?',
           options: [
-            'Rarely – Only a handful of times, tied to major events',
-            'Sporadically – Comes up irregularly based on needs or situations',
-            'Recurring – Happens regularly or on a predictable cycle'
+            'Sporadic – Occurs irregularly, based on specific needs or situations; not on a predictable schedule',
+            'Recurring – Occurs regularly, continuously, or on a predictable cadence (e.g., daily, weekly, monthly)'
           ]
         },
         stakes: {
@@ -236,15 +235,6 @@ Transitory wording between part 1 & part 2:
           options: [
             'Self-serve – Customers can handle it on their own with basic tools or knowledge',
             'Expert-present – An expert is typically involved to get a good or safe outcome'
-          ]
-        },
-        emotionalValence: {
-          title: 'Emotional Valence',
-          prompt: 'What’s the emotional experience for customers when they’re dealing with this problem?',
-          options: [
-            'Appetitive – Motivated by growth, ambition, or achieving something positive',
-            'Neutral – Primarily functional; about getting a task done efficiently',
-            'Aversive – Driven by stress, risk, fear, or trying to avoid a negative outcome'
           ]
         },
         problemDiscovery: {
@@ -749,9 +739,8 @@ Transitory wording between part 1 & part 2:
           title: '出现频率',
           prompt: '这个问题在客户的生活或工作中有多常见？',
           options: [
-            '很少：只会在少数几次重大事件中出现',
-            '偶发：根据需求或情境不规律地出现',
-            '反复出现：经常发生，或按可预测的周期出现'
+            '偶发：根据具体需求或情境不规律地出现，没有可预测的时间表',
+            '反复出现：经常、持续，或按可预测的周期出现（例如每天、每周、每月）'
           ]
         },
         stakes: {
@@ -768,15 +757,6 @@ Transitory wording between part 1 & part 2:
           options: [
             '可自助：客户凭借基础工具或知识就能自己处理',
             '需要专家：通常需要专家参与，才能得到较好或安全的结果'
-          ]
-        },
-        emotionalValence: {
-          title: '情绪特征',
-          prompt: '客户在处理这个问题时，情绪体验通常是什么样的？',
-          options: [
-            '趋近型：由成长、追求或实现积极结果所驱动',
-            '中性：主要是功能性的，重点是高效完成任务',
-            '回避型：由压力、风险、恐惧或避免负面结果所驱动'
           ]
         },
         problemDiscovery: {
