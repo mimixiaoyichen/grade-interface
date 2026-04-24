@@ -13,7 +13,7 @@ import { COMPARISON_PROMPT_TEXT } from '../prompts/comparison';
 import BASELINE_PROMPT from '../prompts/baseline.md?raw';
 import { COMPONENT_EVIDENCE_PROMPT } from '../prompts/componentEvidence';
 import { BARRIER_SELECTOR_PROMPT } from '../prompts/barrierSelector';
-import { uploadFileToBlob } from '../utils/blobUpload';
+import { uploadFileToBlob, deleteBlobByUrl } from '../utils/blobUpload';
 import { SUPPORT_CHECK_PROMPT } from '../prompts/supportCheck';
 
 const MODEL_ID = 'gpt-4o';
@@ -499,38 +499,46 @@ export const transcribeAudioWithDiarization = async (file: File, locale: LocaleO
   }
 
   let payload: any = {};
+  let uploadedBlobUrl: string | null = null;
   const languageCode = localeToLanguageCode(locale);
   const sizeMb = blob.size / (1024 * 1024);
   if (sizeMb > 4) {
-    const blobUrl = await uploadFileToBlob(file);
-    payload = { fileUrl: blobUrl, fileName: (file as any).name || 'audio.wav', mimeType: file.type || 'audio/wav' };
+    uploadedBlobUrl = await uploadFileToBlob(file);
+    payload = { fileUrl: uploadedBlobUrl, fileName: (file as any).name || 'audio.wav', mimeType: file.type || 'audio/wav' };
   } else {
     const fileData = await toBase64(blob);
     payload = { fileData, fileName: (file as any).name || 'audio.wav' };
   }
 
-  const resp = await fetch('/api/transcribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...payload,
-      ...(languageCode ? { languageCode } : {})
-    })
-  });
+  try {
+    const resp = await fetch('/api/transcribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...payload,
+        ...(languageCode ? { languageCode } : {})
+      })
+    });
 
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error || `Transcription failed: ${resp.statusText}`);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `Transcription failed: ${resp.statusText}`);
+    }
+
+    const data = await resp.json();
+    return {
+      text: data.text || '',
+      diarizedText: data.diarizedText || data.text || '',
+      segments: undefined,
+      words: data.words,
+      speakers: data.speakers
+    };
+  } finally {
+    // Always clean up the uploaded blob after processing, whether it succeeded or failed.
+    if (uploadedBlobUrl) {
+      await deleteBlobByUrl(uploadedBlobUrl);
+    }
   }
-
-  const data = await resp.json();
-  return {
-    text: data.text || '',
-    diarizedText: data.diarizedText || data.text || '',
-    segments: undefined,
-    words: data.words,
-    speakers: data.speakers
-  };
 };
 
 /**
