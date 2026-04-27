@@ -237,6 +237,17 @@ Transitory wording between part 1 & part 2:
             'Expert-present – An expert is typically involved to get a good or safe outcome'
           ]
         },
+        needsFulfilled: {
+          title: 'Needs Fulfilled',
+          prompt: 'Which of these describe what your customers are ultimately seeking when they use your product/solution?',
+          options: [
+            'Knowledge',
+            'Material Goods',
+            'Service',
+            'Experience',
+            'Efficiency'
+          ]
+        },
         problemDiscovery: {
           title: 'Problem Discovery',
           prompt: 'Can you tell us about how you discovered the problem you are now solving for your customers?'
@@ -757,6 +768,17 @@ Transitory wording between part 1 & part 2:
           options: [
             '可自助：客户凭借基础工具或知识就能自己处理',
             '需要专家：通常需要专家参与，才能得到较好或安全的结果'
+          ]
+        },
+        needsFulfilled: {
+          title: '满足的需求',
+          prompt: '当客户使用你的产品/解决方案时，他们最终希望获得以下哪些内容？',
+          options: [
+            '知识',
+            '物质商品',
+            '服务',
+            '体验',
+            '效率'
           ]
         },
         problemDiscovery: {

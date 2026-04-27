@@ -3,6 +3,7 @@ import buildExportJson from '../utils/buildExportJson';
 import {
   createProblemCharacteristicsData,
   parseImportedProblemCharacteristics,
+  toggleMultiSelect,
   toggleSingleSelect
 } from '../utils/problemCharacteristics';
 
@@ -13,6 +14,7 @@ describe('problem characteristics helpers', () => {
       q2: ['Sporadic', 'Recurring'],
       q3: ['Continuous: Ongoing and persistent', 'Discrete: One-time or event-based'],
       q4: ['Promotion: Achieve growth, improvement, or gain', 'Maintenance: Sustain or stabilize an existing state'],
+      q5: ['Knowledge', 'Efficiency'],
       q6: 'Discovery notes'
     });
 
@@ -20,6 +22,7 @@ describe('problem characteristics helpers', () => {
     expect(data.q2).toEqual(['Sporadic']);
     expect(data.q3).toEqual(['Continuous: Ongoing and persistent']);
     expect(data.q4).toEqual(['Promotion: Achieve growth, improvement, or gain']);
+    expect(data.q5).toEqual(['Knowledge', 'Efficiency']);
     expect(data.q6).toEqual('Discovery notes');
   });
 
@@ -29,6 +32,12 @@ describe('problem characteristics helpers', () => {
     expect(toggleSingleSelect(['A'], 'A')).toEqual([]);
   });
 
+  it('toggles multiple selected options independently', () => {
+    expect(toggleMultiSelect([], 'Knowledge')).toEqual(['Knowledge']);
+    expect(toggleMultiSelect(['Knowledge'], 'Efficiency')).toEqual(['Knowledge', 'Efficiency']);
+    expect(toggleMultiSelect(['Knowledge', 'Efficiency'], 'Knowledge')).toEqual(['Efficiency']);
+  });
+
   it('exports only one value per singular question', () => {
     const json = buildExportJson({
       problemCharacteristics: {
@@ -36,6 +45,7 @@ describe('problem characteristics helpers', () => {
         q2: ['Sporadic', 'Recurring'],
         q3: ['Continuous', 'Discrete'],
         q4: ['Prevention', 'Promotion'],
+        q5: ['Knowledge', 'Efficiency'],
         q6: 'Discovery notes'
       }
     });
@@ -46,6 +56,7 @@ describe('problem characteristics helpers', () => {
       frequency: ['Sporadic'],
       stakes: ['Continuous'],
       expert_dependency: ['Prevention'],
+      needs_fulfilled: ['Knowledge', 'Efficiency'],
       problem_discovery: 'Discovery notes'
     });
   });
@@ -56,6 +67,7 @@ describe('problem characteristics helpers', () => {
       frequency: ['Recurring'],
       stakes: ['High'],
       expert_dependency: ['Expert-present'],
+      needs_fulfilled: ['Knowledge', 'Service'],
       problem_discovery: 'Found it through repeated customer calls'
     });
 
@@ -65,6 +77,7 @@ describe('problem characteristics helpers', () => {
       q2: ['Recurring'],
       q3: ['High'],
       q4: ['Expert-present'],
+      q5: ['Knowledge', 'Service'],
       q6: 'Found it through repeated customer calls'
     });
   });
@@ -86,6 +99,7 @@ describe('problem characteristics helpers', () => {
       q2: ['Recurring'],
       q3: ['High'],
       q4: [],
+      q5: [],
       q6: ''
     });
   });

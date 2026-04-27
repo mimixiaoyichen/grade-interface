@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import {
   createProblemCharacteristicsData,
+  toggleMultiSelect,
   toggleSingleSelect,
   type ProblemCharacteristicsData
 } from '../utils/problemCharacteristics';
@@ -40,6 +41,26 @@ const SingleSelectGroup: React.FC<{
   );
 };
 
+const MultiSelectGroup: React.FC<{
+  options: string[];
+  selected: string[];
+  onChange: (option: string) => void;
+}> = ({ options, selected, onChange }) => (
+  <div className="space-y-2 mt-2">
+    {options.map((opt) => (
+      <label key={opt} className="flex items-start gap-3 cursor-pointer group">
+        <input
+          type="checkbox"
+          checked={selected.includes(opt)}
+          onChange={() => onChange(opt)}
+          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+        />
+        <span className="text-sm text-gray-700 group-hover:text-gray-900">{opt}</span>
+      </label>
+    ))}
+  </div>
+);
+
 const SectionLabel: React.FC<{ title: string; question: string }> = ({ title, question }) => (
   <div className="mb-3">
     <p className="text-base font-bold text-gray-900 uppercase tracking-wide">{title}</p>
@@ -59,6 +80,9 @@ const ProblemCharacteristics: React.FC<Props> = ({ initialData, onNext, onBack }
 
   const toggleQ = (key: SingleSelectKey, option: string) =>
     setQ(key, toggleSingleSelect(data[key], option));
+
+  const toggleQ5 = (option: string) =>
+    setData((d) => ({ ...d, q5: toggleMultiSelect(d.q5, option) }));
 
   const setQ6 = (val: string) => setData((d) => ({ ...d, q6: val }));
 
@@ -124,6 +148,19 @@ const ProblemCharacteristics: React.FC<Props> = ({ initialData, onNext, onBack }
             options={text.questions.expertDependency.options}
             selected={data.q4}
             onChange={(option) => toggleQ('q4', option)}
+          />
+        </div>
+
+        {/* Q5 */}
+        <div className="py-8">
+          <SectionLabel
+            title={text.questions.needsFulfilled.title}
+            question={text.questions.needsFulfilled.prompt}
+          />
+          <MultiSelectGroup
+            options={text.questions.needsFulfilled.options}
+            selected={data.q5}
+            onChange={toggleQ5}
           />
         </div>
 

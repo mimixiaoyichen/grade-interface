@@ -3,10 +3,20 @@ export interface ProblemCharacteristicsData {
   q2: string[];
   q3: string[];
   q4: string[];
+  q5: string[];
   q6: string;
 }
 
 export type ProblemCharacteristicsRaw = Record<string, unknown>;
+
+type ProblemCharacteristicsInput = {
+  q1?: unknown;
+  q2?: unknown;
+  q3?: unknown;
+  q4?: unknown;
+  q5?: unknown;
+  q6?: unknown;
+};
 
 const normalizeSingleSelect = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -18,22 +28,37 @@ const normalizeSingleSelect = (value: unknown): string[] => {
   return [];
 };
 
+const normalizeMultiSelect = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return [value];
+  }
+  return [];
+};
+
 export const createProblemCharacteristicsData = (
-  initialData?: Partial<ProblemCharacteristicsData> | null
+  initialData?: ProblemCharacteristicsInput | null
 ): ProblemCharacteristicsData => ({
   q1: normalizeSingleSelect(initialData?.q1),
   q2: normalizeSingleSelect(initialData?.q2),
   q3: normalizeSingleSelect(initialData?.q3),
   q4: normalizeSingleSelect(initialData?.q4),
+  q5: normalizeMultiSelect(initialData?.q5),
   q6: typeof initialData?.q6 === 'string' ? initialData.q6 : ''
 });
 
 export const toggleSingleSelect = (current: string[], option: string): string[] =>
   current[0] === option ? [] : [option];
 
+export const toggleMultiSelect = (current: string[], option: string): string[] =>
+  current.includes(option) ? current.filter((item) => item !== option) : [...current, option];
+
 const NEW_SCHEMA_KEYS = [
   'information_intensity',
   'expert_dependency',
+  'needs_fulfilled',
   'problem_discovery'
 ] as const;
 
@@ -58,6 +83,7 @@ export const hasProblemCharacteristicsAnswers = (data?: ProblemCharacteristicsDa
       data.q2.length ||
       data.q3.length ||
       data.q4.length ||
+      data.q5.length ||
       data.q6.trim()
     )
   );
@@ -77,6 +103,7 @@ export const parseImportedProblemCharacteristics = (
         q2: value.frequency,
         q3: value.stakes,
         q4: value.expert_dependency,
+        q5: value.needs_fulfilled,
         q6: typeof value.problem_discovery === 'string' ? value.problem_discovery : ''
       }),
       rawLegacy: null
