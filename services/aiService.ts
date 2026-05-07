@@ -13,11 +13,13 @@ import { COMPARISON_PROMPT_TEXT } from '../prompts/comparison';
 import BASELINE_PROMPT from '../prompts/baseline.md?raw';
 import { COMPONENT_EVIDENCE_PROMPT } from '../prompts/componentEvidence';
 import { BARRIER_SELECTOR_PROMPT } from '../prompts/barrierSelector';
-import { uploadFileToBlob, deleteBlobByUrl } from '../utils/blobUpload';
+import { uploadFileToBlob } from '../utils/blobUpload';
+import { fetchWithTimeout } from '../utils/timeout';
 import { SUPPORT_CHECK_PROMPT } from '../prompts/supportCheck';
 
 const MODEL_ID = 'gpt-4o';
 const COMPONENT_LAYER_MODEL_ID = 'gpt-5.2';
+const TRANSCRIPTION_TIMEOUT_MS = 3 * 60 * 1000;
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -436,11 +438,14 @@ const downsampleToMonoWav = async (file: File, targetSampleRate = 16000): Promis
   const source = offlineCtx.createBufferSource();
   const monoBuffer = offlineCtx.createBuffer(1, decoded.length, decoded.sampleRate);
 
-  // Mixdown to mono
+  // Mixdown to mono by averaging channels before resampling.
   const tmp = new Float32Array(decoded.length);
   for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
-    decoded.copyFromChannel(tmp, ch);
-    offlineCtx.createBuffer(1, decoded.length, decoded.sampleRate).copyToChannel(tmp, 0);
+    const channel = new Float32Array(decoded.length);
+    decoded.copyFromChannel(channel, ch);
+    for (let i = 0; i < channel.length; i++) {
+      tmp[i] += channel[i] / decoded.numberOfChannels;
+    }
   }
   monoBuffer.copyToChannel(tmp, 0);
   source.buffer = monoBuffer;
@@ -510,35 +515,33 @@ export const transcribeAudioWithDiarization = async (file: File, locale: LocaleO
     payload = { fileData, fileName: (file as any).name || 'audio.wav' };
   }
 
-  try {
-    const resp = await fetch('/api/transcribe', {
+  const resp = await fetchWithTimeout(
+    '/api/transcribe',
+    {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...payload,
         ...(languageCode ? { languageCode } : {})
       })
-    });
+    },
+    TRANSCRIPTION_TIMEOUT_MS,
+    'Transcription timed out after 3 minutes. Try a shorter recording or split the audio into smaller files.'
+  );
 
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || `Transcription failed: ${resp.statusText}`);
-    }
-
-    const data = await resp.json();
-    return {
-      text: data.text || '',
-      diarizedText: data.diarizedText || data.text || '',
-      segments: undefined,
-      words: data.words,
-      speakers: data.speakers
-    };
-  } finally {
-    // Always clean up the uploaded blob after processing, whether it succeeded or failed.
-    if (uploadedBlobUrl) {
-      await deleteBlobByUrl(uploadedBlobUrl);
-    }
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error || `Transcription failed: ${resp.statusText}`);
   }
+
+  const data = await resp.json();
+  return {
+    text: data.text || '',
+    diarizedText: data.diarizedText || data.text || '',
+    segments: undefined,
+    words: data.words,
+    speakers: data.speakers
+  };
 };
 
 /**

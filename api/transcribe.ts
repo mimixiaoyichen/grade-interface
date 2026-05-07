@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+import { del } from '@vercel/blob';
 
 const cwd = process.cwd();
 const envLocal = path.join(cwd, '.env.local');
@@ -16,6 +17,7 @@ const DIARIZE = process.env.DIARIZATION !== 'false';
 const TAG_AUDIO_EVENTS = process.env.TAG_AUDIO_EVENTS !== 'false';
 const DEFAULT_OUTPUT = 'Speaker transcript not available.';
 const MAX_MB = Number(process.env.MAX_AUDIO_MB || 4.5);
+const BLOB_CLEANUP_TIMEOUT_MS = 5 * 1000;
 
 const client = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY || '',
@@ -94,7 +96,9 @@ const guessMime = (name: string) => {
 };
 
 const transcribeBuffer = async (buffer: Buffer, fileName: string, modelId: string, languageCode: string, mimeType?: string) => {
-  const blob = new Blob([buffer], { type: mimeType || guessMime(fileName) });
+  const audioBytes = new Uint8Array(buffer.length);
+  audioBytes.set(buffer);
+  const blob = new Blob([audioBytes.buffer], { type: mimeType || guessMime(fileName) });
 
   const response: any = await client.speechToText.convert({
     file: blob,
@@ -123,18 +127,38 @@ const transcribeBuffer = async (buffer: Buffer, fileName: string, modelId: strin
   };
 };
 
+const deleteUploadedBlob = async (fileUrl?: string | null) => {
+  if (!fileUrl) return;
+  const token = process.env.BLOB_READ_WRITE_TOKEN || process.env.VITE_BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    console.warn('Skipping uploaded audio blob cleanup: BLOB_READ_WRITE_TOKEN is missing.');
+    return;
+  }
+
+  try {
+    await Promise.race([
+      del(fileUrl, { token }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Blob cleanup timed out.')), BLOB_CLEANUP_TIMEOUT_MS)),
+    ]);
+  } catch (err: any) {
+    console.warn('Failed to clean up uploaded audio blob:', err?.message || err);
+  }
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!process.env.ELEVENLABS_API_KEY) {
     return res.status(500).json({ error: 'ELEVENLABS_API_KEY is missing on the server.' });
   }
 
+  let uploadedFileUrl: string | null = null;
   try {
     const { fileData, fileUrl, fileName = 'audio.webm', modelId = MODEL_ID, languageCode, mimeType } = req.body || {};
 
     let buffer: Buffer | null = null;
 
     if (fileUrl && typeof fileUrl === 'string') {
+      uploadedFileUrl = fileUrl;
       const resp = await fetch(fileUrl);
       if (!resp.ok) return res.status(400).json({ error: `Failed to fetch blob: ${resp.status}` });
       const arr = await resp.arrayBuffer();
@@ -160,5 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err: any) {
     console.error('Transcribe API error:', err);
     return res.status(500).json({ error: err?.message || 'Internal error' });
+  } finally {
+    await deleteUploadedBlob(uploadedFileUrl);
   }
 }

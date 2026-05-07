@@ -2060,6 +2060,10 @@ function App() {
         {step === WizardStep.PROBLEM_CHARACTERISTICS && (
           <ProblemCharacteristics
             initialData={problemCharacteristicsData}
+            onChange={(data) => {
+              setProblemCharacteristicsData(data);
+              setProblemCharacteristicsRaw(null);
+            }}
             onNext={(data) => {
               setProblemCharacteristicsData(data);
               setProblemCharacteristicsRaw(null);

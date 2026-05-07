@@ -28,3 +28,6 @@ dist-ssr
 
 # Claude Code local settings
 .claude/settings.local.json
+.claude/worktrees/intelligent-swirles-eaeeb1/
+.claude/worktrees/jolly-nightingale-9406fa/
+.vercelignore

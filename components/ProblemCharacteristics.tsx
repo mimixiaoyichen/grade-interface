@@ -12,6 +12,7 @@ export type { ProblemCharacteristicsData } from '../utils/problemCharacteristics
 
 interface Props {
   initialData?: ProblemCharacteristicsData;
+  onChange?: (data: ProblemCharacteristicsData) => void;
   onNext: (data: ProblemCharacteristicsData) => void;
   onBack: () => void;
 }
@@ -68,23 +69,31 @@ const SectionLabel: React.FC<{ title: string; question: string }> = ({ title, qu
   </div>
 );
 
-const ProblemCharacteristics: React.FC<Props> = ({ initialData, onNext, onBack }) => {
+const ProblemCharacteristics: React.FC<Props> = ({ initialData, onChange, onNext, onBack }) => {
   type SingleSelectKey = 'q1' | 'q2' | 'q3' | 'q4';
   const text = useT().problemCharacteristics;
   const [data, setData] = useState<ProblemCharacteristicsData>(
     () => createProblemCharacteristicsData(initialData)
   );
 
+  const updateData = (updater: (current: ProblemCharacteristicsData) => ProblemCharacteristicsData) => {
+    setData((current) => {
+      const next = updater(current);
+      onChange?.(next);
+      return next;
+    });
+  };
+
   const setQ = (key: SingleSelectKey, val: string[]) =>
-    setData((d) => ({ ...d, [key]: val.slice(0, 1) }));
+    updateData((d) => ({ ...d, [key]: val.slice(0, 1) }));
 
   const toggleQ = (key: SingleSelectKey, option: string) =>
     setQ(key, toggleSingleSelect(data[key], option));
 
   const toggleQ5 = (option: string) =>
-    setData((d) => ({ ...d, q5: toggleMultiSelect(d.q5, option) }));
+    updateData((d) => ({ ...d, q5: toggleMultiSelect(d.q5, option) }));
 
-  const setQ6 = (val: string) => setData((d) => ({ ...d, q6: val }));
+  const setQ6 = (val: string) => updateData((d) => ({ ...d, q6: val }));
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 animate-fade-in-up">

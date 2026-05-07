@@ -1,4 +1,4 @@
-import { put, del } from '@vercel/blob';
+import { put } from '@vercel/blob';
 
 // Direct client upload to Vercel Blob (requires exposing a read/write token to the client).
 // Set VITE_BLOB_READ_WRITE_TOKEN in your env. This is not recommended for sensitive stores.
@@ -18,17 +18,4 @@ export const uploadFileToBlob = async (file: File): Promise<string> => {
   });
 
   return blob.url;
-};
-
-// Deletes a previously uploaded blob by URL. Safe to call with a falsy url (no-op).
-// Swallows errors so cleanup failures never break the caller's flow.
-export const deleteBlobByUrl = async (url?: string | null): Promise<void> => {
-  if (!url) return;
-  const token = (import.meta as any).env?.VITE_BLOB_READ_WRITE_TOKEN;
-  if (!token) return;
-  try {
-    await del(url, { token });
-  } catch (err) {
-    console.warn('Failed to delete blob', url, err);
-  }
 };
