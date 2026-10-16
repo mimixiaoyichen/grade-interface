@@ -34,7 +34,23 @@ import StepIndicator from './components/StepIndicator';
 import SpeakerModal from './components/SpeakerModal';
 import Part2Comparison from './components/Part2Comparison';
 import ConsentModal from './components/ConsentModal';
-import GuidedTour, { TourStep as GuidedTourStep } from './components/GuidedTour';
+import TutorialSidebar from './components/TutorialSidebar';
+import TutorialWelcome from './components/TutorialWelcome';
+import {
+  TUTORIAL_STEPS,
+  TUTORIAL_COMPANY_URL,
+  TUTORIAL_PITCHBOOK,
+  TUTORIAL_PUBLIC_INFO as TUTORIAL_PUBLIC_INFO_TEXT,
+  TUTORIAL_BASELINE,
+  TUTORIAL_FOUNDER_INPUT as TUTORIAL_FOUNDER_INPUT_DATA,
+  TUTORIAL_TRANSCRIPT,
+  TUTORIAL_SPLIT,
+  TUTORIAL_PART1_RESULT,
+  TUTORIAL_COMPARISON_ROWS,
+  TUTORIAL_COMPONENT_EVIDENCE,
+  TUTORIAL_PROBLEM_CHARACTERISTICS,
+  type TutorialStep
+} from './utils/tutorialData';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
 import { stripBarrierLeadIn, stripBarrierLeadInList } from './utils/barriers';
 import {
@@ -95,219 +111,43 @@ type TourSample = {
   pitchbookInfo: string;
   publicInfo: string;
   baseline: BaselineStatement;
+  founderInput: BaselineStatement;
   transcript: string;
+  splitData?: TranscriptSplit;
+  part1Result?: StatementResult;
   comparisonRows: ComparisonRow[];
   componentEvidence: ComponentEvidence;
+  problemCharacteristicsData?: ProblemCharacteristicsData;
   part2Notes?: string;
-  splitData?: TranscriptSplit;
 };
-
-type WizardTourStep = GuidedTourStep & { wizardStep: WizardStep };
 
 const TOUR_SAMPLE_CONTENT: Record<LocaleKey, TourSample> = {
   en: {
-    companyUrl: 'https://oriongrid.com',
-    pitchbookInfo: 'OrionGrid builds an AI copilot for microgrid operators balancing clean energy and reliability.',
-    publicInfo: 'Recent coverage shows OrionGrid helping island utilities forecast outages and automate backup generator schedules across 140 sites.',
-    baseline: {
-      SOLUTION: 'AI copilot that predicts demand spikes and tunes batteries automatically.',
-      CUSTOMER_SEGMENT: 'Utility operators managing microgrids for island communities.',
-      LIFE_BUSINESS_CONTEXT: 'When storms or heatwaves threaten grid stability and staff is thin.',
-      JOB_TO_BE_DONE: 'Keep power stable while hitting clean-energy targets and budgets.',
-      SPECIFIC_BARRIERS: [
-        'Manual schedules waste fuel and trigger outages.',
-        'Limited visibility into battery health across sites.',
-        'Small teams cannot watch dozens of assets overnight.'
-      ]
-    },
-    transcript: [
-      'Speaker 1: We mainly serve island utilities that juggle solar and diesel fleets.',
-      'Speaker 1: During storms they need alerts and suggested schedules.',
-      'Speaker 1: Operators also leave notes so teammates see what changed overnight.',
-      'Speaker 2: So reliability and emissions both matter to them.'
-    ].join('\n'),
-    comparisonRows: [
-      {
-        id: 'tour-row-customer',
-        component: 'Customer',
-        baselineText: 'Utility operators managing microgrids for island communities.',
-        transcriptModification: 'Island utility control rooms coordinating diesel, solar, and battery assets.',
-        reviewerEdit: 'Island utility control rooms',
-        type: 'Modification',
-        transcriptEvidence: '“We mainly serve island utilities that juggle solar and diesel fleets.”',
-        publicSupport: 'Supported by company press release.',
-        publicEvidence: 'Announced rollout with Pacific Islands Utility.',
-        publicEvidenceContext: 'Press release mentions 140 microgrids with hybrid assets.',
-        isSupportedByPublic: true,
-        isAccepted: false,
-        reviewerNotes: '',
-        reviewerDecision: 'Supported'
-      },
-      {
-        id: 'tour-row-goal',
-        component: 'Goal',
-        baselineText: 'Keep power stable while hitting clean-energy targets and budgets.',
-        transcriptModification: 'Prevent outages during storms without overspending on diesel.',
-        reviewerEdit: 'Prevent outages during storms without overspending on diesel.',
-        type: 'Modification',
-        transcriptEvidence: '“During storms they need alerts and suggested schedules.”',
-        publicSupport: 'Supported by sustainability report.',
-        publicEvidence: 'Case study about balancing emissions and uptime.',
-        publicEvidenceContext: 'Sustainability report quoting operators on storm prep.',
-        isSupportedByPublic: true,
-        isAccepted: false,
-        reviewerNotes: '',
-        reviewerDecision: 'Supported'
-      },
-      {
-        id: 'tour-row-barrier',
-        component: 'Barrier',
-        baselineText: 'Small teams cannot watch dozens of assets overnight.',
-        transcriptModification: 'Hard to share incident notes across shifts.',
-        reviewerEdit: 'Need shared incident notes for shifts.',
-        type: 'Hallucination',
-        transcriptEvidence: '“Operators also leave notes so teammates see what changed overnight.”',
-        publicSupport: 'Not covered in press material.',
-        publicEvidence: 'No public quote yet.',
-        publicEvidenceContext: '',
-        isSupportedByPublic: false,
-        isAccepted: false,
-        reviewerNotes: '',
-        reviewerDecision: 'Not supported'
-      }
-    ],
-    componentEvidence: {
-      customer: {
-        context: 'Transcript calls out island utilities juggling solar and diesel.',
-        core: 'Island utility control rooms'
-      },
-      context: {
-        context: 'Storm prep appears multiple times in the transcript.',
-        core: 'When storms threaten isolated grids'
-      },
-      goal: {
-        context: 'Operators care about uptime and fuel spend during weather events.',
-        core: 'Keep power on without overspending on fuel'
-      },
-      barrier: {
-        context: 'Notes about handoffs between shifts.',
-        core: 'Hard to share incident notes across crews'
-      }
-    },
-    part2Notes: 'Demo: reviewers discuss how storms change the customer story.',
-    splitData: {
-      part1: [
-        'Speaker 1: We mainly serve island utilities that juggle solar and diesel fleets.',
-        'Speaker 1: During storms they need alerts and suggested schedules.'
-      ].join('\n'),
-      part2: [
-        'Speaker 1: Operators also leave notes so teammates see what changed overnight.',
-        'Speaker 2: So reliability and emissions both matter to them.'
-      ].join('\n'),
-      reasoning: 'Storm prep vs follow-up shift handoffs.'
-    }
+    companyUrl: TUTORIAL_COMPANY_URL,
+    pitchbookInfo: TUTORIAL_PITCHBOOK,
+    publicInfo: TUTORIAL_PUBLIC_INFO_TEXT,
+    baseline: TUTORIAL_BASELINE,
+    founderInput: TUTORIAL_FOUNDER_INPUT_DATA,
+    transcript: TUTORIAL_TRANSCRIPT,
+    splitData: TUTORIAL_SPLIT,
+    part1Result: TUTORIAL_PART1_RESULT,
+    comparisonRows: TUTORIAL_COMPARISON_ROWS,
+    componentEvidence: TUTORIAL_COMPONENT_EVIDENCE,
+    problemCharacteristicsData: TUTORIAL_PROBLEM_CHARACTERISTICS,
+    part2Notes: "Demo: notice the Barrier row — the LLM described a compliance concern the founder explicitly said they've never stated publicly."
   },
   zh: {
-    companyUrl: 'https://oriongrid.cn/demo',
-    pitchbookInfo: 'OrionGrid 为微电网运营团队提供 AI 调度助手，兼顾清洁能源和稳定性。',
-    publicInfo: '媒体报道其帮助岛屿电网预测停电并自动安排备用机组，覆盖 140 个站点。',
-    baseline: {
-      SOLUTION: 'AI 能源调度助手，预测负载并自动调整电池与柴油机。',
-      CUSTOMER_SEGMENT: '偏远社区的微电网运营团队',
-      LIFE_BUSINESS_CONTEXT: '在台风或高温导致电网不稳定、人手紧张时',
-      JOB_TO_BE_DONE: '保持供电稳定，同时达成清洁能源目标和成本预算',
-      SPECIFIC_BARRIERS: [
-        '人工排班耗油且容易停电',
-        '电池健康状况透明度低',
-        '小团队无法实时盯几十个站点'
-      ]
-    },
-    transcript: [
-      'Speaker 1: 我们主要服务岛屿电网，协调太阳能和柴油机。',
-      'Speaker 1: 台风前他们需要提前预警和调度建议。',
-      'Speaker 1: 值班同事会留下笔记，方便夜班接手。',
-      'Speaker 2: 他们同时在意可靠性和减排。'
-    ].join('\n'),
-    comparisonRows: [
-      {
-        id: 'tour-row-customer-zh',
-        component: 'Customer',
-        baselineText: '偏远社区的微电网运营团队',
-        transcriptModification: '协调柴油、光伏和电池的岛屿电网调度团队',
-        reviewerEdit: '岛屿电网调度团队',
-        type: 'Modification',
-        transcriptEvidence: '“我们主要服务岛屿电网，协调太阳能和柴油机。”',
-        publicSupport: '公司新闻稿支持',
-        publicEvidence: '宣布与太平洋某岛屿电网合作',
-        publicEvidenceContext: '新闻稿提到覆盖 140 个混合能源站点。',
-        isSupportedByPublic: true,
-        isAccepted: false,
-        reviewerNotes: '',
-        reviewerDecision: 'Supported'
-      },
-      {
-        id: 'tour-row-goal-zh',
-        component: 'Goal',
-        baselineText: '保持供电稳定，同时达成清洁能源目标和成本预算',
-        transcriptModification: '台风来时避免停电，同时不额外耗油',
-        reviewerEdit: '台风来时避免停电且控制柴油成本',
-        type: 'Modification',
-        transcriptEvidence: '“台风前他们需要提前预警和调度建议。”',
-        publicSupport: '可从可持续发展报告支撑',
-        publicEvidence: '案例提到平衡排放与稳定性',
-        publicEvidenceContext: '报告引用运维团队谈台风准备。',
-        isSupportedByPublic: true,
-        isAccepted: false,
-        reviewerNotes: '',
-        reviewerDecision: 'Supported'
-      },
-      {
-        id: 'tour-row-barrier-zh',
-        component: 'Barrier',
-        baselineText: '小团队无法实时盯几十个站点',
-        transcriptModification: '跨班次共享事件笔记较难',
-        reviewerEdit: '需要跨班次的事件记录',
-        type: 'Hallucination',
-        transcriptEvidence: '“值班同事会留下笔记，方便夜班接手。”',
-        publicSupport: '公开资料暂无',
-        publicEvidence: '尚未看到公开证据',
-        publicEvidenceContext: '',
-        isSupportedByPublic: false,
-        isAccepted: false,
-        reviewerNotes: '',
-        reviewerDecision: 'Not supported'
-      }
-    ],
-    componentEvidence: {
-      customer: {
-        context: '访谈提到岛屿电网调度场景。',
-        core: '岛屿电网调度团队'
-      },
-      context: {
-        context: '多次提到台风和夜班情境。',
-        core: '台风来临、人手紧张时'
-      },
-      goal: {
-        context: '强调不停电且控制油耗。',
-        core: '在极端天气保持供电并减少柴油使用'
-      },
-      barrier: {
-        context: '提到跨班次的交接笔记。',
-        core: '跨班次信息传递困难'
-      }
-    },
-    part2Notes: '演示：讨论台风情景如何影响客户描述。',
-    splitData: {
-      part1: [
-        'Speaker 1: 我们主要服务岛屿电网，协调太阳能和柴油机。',
-        'Speaker 1: 台风前他们需要提前预警和调度建议。'
-      ].join('\n'),
-      part2: [
-        'Speaker 1: 值班同事会留下笔记，方便夜班接手。',
-        'Speaker 2: 他们同时在意可靠性和减排。'
-      ].join('\n'),
-      reasoning: '前半段是台风前调度，后半段是交班和需求影响。'
-    }
+    companyUrl: TUTORIAL_COMPANY_URL,
+    pitchbookInfo: TUTORIAL_PITCHBOOK,
+    publicInfo: TUTORIAL_PUBLIC_INFO_TEXT,
+    baseline: TUTORIAL_BASELINE,
+    founderInput: TUTORIAL_FOUNDER_INPUT_DATA,
+    transcript: TUTORIAL_TRANSCRIPT,
+    splitData: TUTORIAL_SPLIT,
+    part1Result: TUTORIAL_PART1_RESULT,
+    comparisonRows: TUTORIAL_COMPARISON_ROWS,
+    componentEvidence: TUTORIAL_COMPONENT_EVIDENCE,
+    problemCharacteristicsData: TUTORIAL_PROBLEM_CHARACTERISTICS,
   }
 };
 
@@ -403,6 +243,7 @@ function App() {
   const [founderDataConsent, setFounderDataConsent] = useState<boolean>(false);
   const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
   const [tourStepIndex, setTourStepIndex] = useState<number>(0);
+  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -411,123 +252,14 @@ function App() {
     }
   }, []);
 
-  const tourSteps: WizardTourStep[] = useMemo(() => [
-    {
-      id: 'tour-progress',
-      targetId: 'tour-step-indicator',
-      title: t.tour.steps.progress.title,
-      description: t.tour.steps.progress.description,
-      wizardStep: WizardStep.PUBLIC_INFO
-    },
-    {
-      id: 'tour-public-info',
-      targetId: 'tour-public-info',
-      title: t.tour.steps.publicInfo.title,
-      description: t.tour.steps.publicInfo.description,
-      wizardStep: WizardStep.PUBLIC_INFO
-    },
-    {
-      id: 'tour-fetch-url',
-      targetId: 'tour-fetch-url',
-      title: t.tour.steps.fetchUrl.title,
-      description: t.tour.steps.fetchUrl.description,
-      wizardStep: WizardStep.PUBLIC_INFO
-    },
-    {
-      id: 'tour-generate-baseline',
-      targetId: 'tour-generate-baseline',
-      title: t.tour.steps.generateBaseline.title,
-      description: t.tour.steps.generateBaseline.description,
-      wizardStep: WizardStep.PUBLIC_INFO
-    },
-    {
-      id: 'tour-baseline-preview',
-      targetId: 'tour-baseline-preview',
-      title: t.tour.steps.baselinePreview.title,
-      description: t.tour.steps.baselinePreview.description,
-      wizardStep: WizardStep.PUBLIC_INFO
-    },
-    {
-      id: 'tour-founder',
-      targetId: 'tour-founder-input',
-      title: t.tour.steps.founderInput.title,
-      description: t.tour.steps.founderInput.description,
-      wizardStep: WizardStep.FOUNDER_INPUT
-    },
-    {
-      id: 'tour-consent',
-      targetId: 'tour-consent',
-      title: t.tour.steps.consent.title,
-      description: t.tour.steps.consent.description,
-      wizardStep: WizardStep.FOUNDER_INPUT
-    },
-    {
-      id: 'tour-baseline-review',
-      targetId: 'tour-baseline-review',
-      title: t.tour.steps.baselineReview.title,
-      description: t.tour.steps.baselineReview.description,
-      wizardStep: WizardStep.BASELINE_REVIEW
-    },
-    {
-      id: 'tour-transcript-audio',
-      targetId: 'tour-transcript-audio',
-      title: t.tour.steps.transcriptUploadAudio.title,
-      description: t.tour.steps.transcriptUploadAudio.description,
-      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
-    },
-    {
-      id: 'tour-transcript-text',
-      targetId: 'tour-transcript-text',
-      title: t.tour.steps.transcriptUploadText.title,
-      description: t.tour.steps.transcriptUploadText.description,
-      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
-    },
-    {
-      id: 'tour-transcript-editor',
-      targetId: 'tour-transcript-editor',
-      title: t.tour.steps.transcriptEdit.title,
-      description: t.tour.steps.transcriptEdit.description,
-      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
-    },
-    {
-      id: 'tour-split-view',
-      targetId: 'tour-split-view',
-      title: t.tour.steps.transcriptSplitEdit.title,
-      description: t.tour.steps.transcriptSplitEdit.description,
-      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
-    },
-    {
-      id: 'tour-split-reason',
-      targetId: 'tour-split-reason',
-      title: t.tour.steps.transcriptSplitReason.title,
-      description: t.tour.steps.transcriptSplitReason.description,
-      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
-    },
-    {
-      id: 'tour-split-confirm',
-      targetId: 'tour-split-confirm',
-      title: t.tour.steps.transcriptSplitConfirm.title,
-      description: t.tour.steps.transcriptSplitConfirm.description,
-      wizardStep: WizardStep.TRANSCRIPT_UPLOAD
-    },
-    {
-      id: 'tour-comparison-table',
-      targetId: 'tour-comparison-table',
-      title: t.tour.steps.comparisonTable.title,
-      description: t.tour.steps.comparisonTable.description,
-      wizardStep: WizardStep.PART2_COMPARISON
-    },
-    {
-      id: 'tour-comparison-export',
-      targetId: 'tour-comparison-export',
-      title: t.tour.steps.comparisonExport.title,
-      description: t.tour.steps.comparisonExport.description,
-      wizardStep: WizardStep.PART2_COMPARISON
-    }
-  ], [t]);
+  useEffect(() => {
+    setShowWelcomeModal(true);
+  }, []);
 
-  const applyTourData = useCallback((targetLocale: LocaleKey) => {
-    const sample = TOUR_SAMPLE_CONTENT[targetLocale] || TOUR_SAMPLE_CONTENT.en;
+  const tourSteps: TutorialStep[] = TUTORIAL_STEPS;
+
+  const applyTourData = useCallback(() => {
+    const sample = TOUR_SAMPLE_CONTENT.en;
     const combinedSource = [sample.pitchbookInfo, sample.publicInfo].filter(Boolean).join('\n\n').trim();
     tourSampleRef.current = sample;
     setStatus(AppStatus.IDLE);
@@ -543,13 +275,13 @@ function App() {
     setBaselineLLM(sample.baseline);
     setBaselineLLMRaw4o(sample.baseline);
     setBaselineGpt52Layer(null);
-    setFounderInput(sample.baseline);
-    setProblemCharacteristicsData(undefined);
+    setFounderInput(sample.founderInput || sample.baseline);
+    setProblemCharacteristicsData(sample.problemCharacteristicsData);
     setProblemCharacteristicsRaw(null);
     setTranscript(sample.transcript);
     setDiarizedPreview(sample.transcript);
     setSplitData(null);
-    setPart1Result(null);
+    setPart1Result(sample.part1Result || null);
     setComparisonRows(sample.comparisonRows);
     setSupportByRow(buildSupportState(sample.comparisonRows));
     setComponentEvidence(sample.componentEvidence);
@@ -605,7 +337,7 @@ function App() {
     setIsTourOpen(true);
     setIsGuideOpen(false);
     setShowGuideGlow(false);
-    applyTourData(locale);
+    applyTourData();
     setStep(WizardStep.PUBLIC_INFO);
     setTourStepIndex(0);
   };
@@ -672,18 +404,13 @@ function App() {
 
   useEffect(() => {
     if (isTourOpen) {
-      applyTourData(locale);
+      applyTourData();
     }
-  }, [applyTourData, isTourOpen, locale]);
+  }, [applyTourData, isTourOpen]);
 
   useEffect(() => {
     if (!isTourOpen) return;
-    const splitStepIds = new Set([
-      'tour-split-view',
-      'tour-split-reason',
-      'tour-split-confirm'
-    ]);
-    const needsSplit = splitStepIds.has(tourSteps[tourStepIndex]?.id);
+    const needsSplit = Boolean(tourSteps[tourStepIndex]?.requiresSplit);
     if (needsSplit) {
       const sampleSplit = tourSampleRef.current?.splitData;
       if (sampleSplit) {
@@ -1614,12 +1341,6 @@ function App() {
                )}
              </button>
              <button
-               onClick={() => setLocale((prev) => prev === 'zh' ? 'en' : 'zh')}
-               className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
-             >
-               {locale === 'zh' ? common.languageEn : common.languageZh}
-             </button>
-             <button
                onClick={triggerImportJson}
                className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50"
              >
@@ -1671,22 +1392,23 @@ function App() {
           founderDataConsent={founderDataConsent}
           onToggleDataConsent={setFounderDataConsent}
         />
-        <GuidedTour
+        <TutorialSidebar
           open={isTourOpen}
           steps={tourSteps}
           currentIndex={tourStepIndex}
           onClose={closeTour}
           onNext={handleTourNext}
           onPrev={handleTourPrev}
-          labels={{
-            next: t.tour.controls.next,
-            prev: t.tour.controls.prev,
-            finish: t.tour.controls.finish,
-            close: t.tour.controls.close,
-            stepLabel: t.common.stepLabel,
-            demoNote: t.tour.controls.demoNote
-          }}
         />
+        {showWelcomeModal && (
+          <TutorialWelcome
+            onStart={() => {
+              setShowWelcomeModal(false);
+              startTour();
+            }}
+            onSkip={() => setShowWelcomeModal(false)}
+          />
+        )}
         <div data-tour-id="tour-step-indicator">
           <StepIndicator
             steps={visibleSteps}
@@ -1712,7 +1434,7 @@ function App() {
                 <h2 className="text-2xl font-bold mb-1">{t.publicInfo.title}</h2>
                 </div>
               <button
-                onClick={startTour}
+                onClick={() => setShowWelcomeModal(true)}
                 disabled={isTourOpen}
                 className="text-xs font-semibold text-purple-700 border border-purple-200 px-3 py-2 rounded-lg hover:bg-purple-50 disabled:opacity-50"
               >
