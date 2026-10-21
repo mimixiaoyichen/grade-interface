@@ -1,114 +1,118 @@
 import type { BaselineStatement, ComparisonRow, ComponentEvidence, TranscriptSplit, StatementResult } from '../types';
-import type { ProblemCharacteristicsData } from '../utils/problemCharacteristics';
 import { WizardStep } from '../types';
 
-// Synthetic demo company: "Relay" — AI scheduling copilot for home healthcare agencies.
+// Demo company: Uber (early stage, 2010).
 // Used for the tutorial walkthrough only. No real API calls are made when this data is active.
+// Key narrative: LLM infers Uber solved a cost problem; founder corrects that it was a reliability problem —
+// and that early Uber was deliberately MORE expensive than taxis.
 
-export const TUTORIAL_COMPANY_URL = 'https://relay-health.io';
+export const TUTORIAL_COMPANY_URL = 'https://uber.com';
 
 export const TUTORIAL_PITCHBOOK =
-  'Relay Health is an AI-powered scheduling platform for home healthcare agencies. Founded in 2022, ' +
-  'Relay automates visit assignment by matching nurses and aides to patients based on skills, proximity, ' +
-  'and patient history. The company reports a 40% reduction in scheduling time and serves over 120 mid-sized agencies across the US.';
+  'Uber Technologies (originally UberCab) was founded in 2009 by Travis Kalanick and Garrett Camp. ' +
+  'The company raised a $1.25M seed round from First Round Capital and angel investors. ' +
+  'Initial operations used a fleet of licensed black town cars (Lincoln Town Cars) driven by professional chauffeurs. ' +
+  'Pricing was set at 1.5–2x the standard taxi meter rate from day one.';
 
 export const TUTORIAL_PUBLIC_INFO =
-  "Relay's website describes a product that eliminates \"the 2-hour morning scramble\" that home health " +
-  'schedulers face each day. The platform ingests patient needs, staff certifications, and real-time ' +
-  'location data to recommend optimal assignments. Case studies highlight a 35% drop in missed visits ' +
-  'and a 28% improvement in staff retention at pilot agencies.';
+  "UberCab's launch press described the service as \"everyone's private driver\" — a one-tap iPhone experience " +
+  'that dispatches a black car to your location in minutes. Early TechCrunch coverage emphasized the seamlessness: ' +
+  'open the app, see nearby cars on a map, tap once to request. No cash, no phone dispatch, no uncertainty. ' +
+  "The company's website highlighted the quality of the vehicle fleet and the professionalism of its drivers. " +
+  'Marketing positioned Uber as bringing the experience of a private car service to anyone who wanted it, ' +
+  'whenever they wanted it.';
 
 // LLM-generated baseline from public info only
 export const TUTORIAL_BASELINE: BaselineStatement = {
-  SOLUTION: 'AI scheduling platform that automatically assigns nurses and home health aides to patient visits.',
-  CUSTOMER_SEGMENT: 'Home healthcare agency administrators and operations managers.',
-  LIFE_BUSINESS_CONTEXT: 'When building daily visit schedules across a large field-based workforce with complex patient needs.',
-  JOB_TO_BE_DONE: 'Ensure every patient gets the right caregiver at the right time, while keeping staff utilization high.',
+  SOLUTION: 'On-demand smartphone app that dispatches a professional black car to your location in minutes.',
+  CUSTOMER_SEGMENT: 'Urban professionals and commuters who need reliable, on-demand transportation around the city.',
+  LIFE_BUSINESS_CONTEXT: 'When traveling around a city and unable to quickly find or hail a traditional taxi.',
+  JOB_TO_BE_DONE: 'Get to their destination reliably and comfortably without the hassle of cash or phone dispatch.',
   SPECIFIC_BARRIERS: [
-    'Manual scheduling in spreadsheets takes hours and produces error-prone rosters.',
-    "Agencies lack visibility into caregiver certifications and real-time locations.",
-    'Last-minute cancellations cascade into missed visits and compliance violations.'
+    'Taxis are unreliable and difficult to hail, especially during peak hours or bad weather.',
+    'Traditional car services are expensive and require booking hours in advance.',
+    'Riders have no visibility into driver location or estimated arrival before committing.'
   ]
 };
 
 // Founder's own version, captured during Part 1 of the interview
 export const TUTORIAL_FOUNDER_INPUT: BaselineStatement = {
-  SOLUTION: 'AI scheduling copilot that matches caregivers to patients and handles same-day changes automatically.',
-  CUSTOMER_SEGMENT: 'Schedulers at mid-sized home healthcare agencies (50–300 staff).',
-  LIFE_BUSINESS_CONTEXT: "Every morning when building the day's schedule, and again throughout the day when cancellations hit.",
-  JOB_TO_BE_DONE: 'Get every patient visited by a qualified caregiver without burning out the scheduling team.',
+  SOLUTION: 'One-tap black car app for people who need to be somewhere and can\'t leave transportation to chance.',
+  CUSTOMER_SEGMENT: 'Professionals and event-goers — people out late at conferences, dinners, and client meetings who keep getting stranded when they need to leave.',
+  LIFE_BUSINESS_CONTEXT: 'Late nights after events and dinners, when cabs are impossible to find and missing your ride has real consequences.',
+  JOB_TO_BE_DONE: 'Eliminate the background anxiety of "how am I getting home" so you can be fully present at whatever you\'re doing.',
   SPECIFIC_BARRIERS: [
-    'Spreadsheet scheduling takes 2+ hours every morning.',
-    "Schedulers don't have live visibility into who's available or certified for each patient.",
-    'When a caregiver cancels, it takes another 45 minutes to find a replacement manually.'
+    'Taxis were deeply unreliable — you could stand on a corner for 45 minutes and nothing would come.',
+    'Existing car service required booking hours in advance; it couldn\'t handle spontaneous or last-minute needs.',
+    'There was no information — you had no idea if a cab was coming or how far away it was.'
   ]
 };
 
-export const TUTORIAL_TRANSCRIPT = `Interviewer: Let's start with what you've built. How would you describe Relay's product?
+export const TUTORIAL_TRANSCRIPT = `Interviewer: Let's start with the product. How would you describe what you built?
 
-Founder: We're an AI scheduling copilot for home health agencies. Basically, every morning a scheduler sits down and has to figure out which nurse or aide goes to which patient. There are all these constraints — patient preferences, certification requirements, travel time, continuity of care. It takes hours. We automate that.
+Founder: We built an iPhone app where you tap a button and a black car shows up in five minutes. Licensed chauffeurs, Lincoln Town Cars, every time. No dispatch call, no cash, no waiting to see if anyone comes.
 
-Interviewer: And who are your customers?
+Interviewer: Who were your first customers?
 
-Founder: We focus specifically on mid-sized agencies — roughly 50 to 300 staff. Larger ones have their own internal tech teams, and tiny agencies often just have one person wearing every hat. Our sweet spot is the scheduler at an agency that's grown to the point where a spreadsheet just isn't cutting it anymore.
+Founder: Professionals who were out at night — events, conferences, client dinners — and kept getting stranded trying to get home. Taxis in most cities were genuinely unreliable. You'd stand outside a venue at midnight and nothing would show up for 45 minutes. Our early adopters were people who'd been burned by that enough times that they'd pay more for a guaranteed ride.
 
-Interviewer: When does this problem feel most acute for them?
+Interviewer: When did the problem feel most acute for them?
 
-Founder: Two moments. Morning build — that's the two-hour window before the first visit when you're constructing the whole day. And then every time a cancellation hits. A nurse calls in sick at 7am, you've got 20 minutes to find someone certified for that patient before you're in violation.
+Founder: Late nights, mostly. The morning commute you can plan around — you build in buffer time, you take transit, whatever. But when you're wrapping up a conference dinner and need to get back to the hotel, or you have an early flight, that's when you feel the absence of a reliable option. The stakes are real. There's no good fallback.
 
-Interviewer: What are your customers ultimately trying to achieve?
+Interviewer: What were your customers ultimately trying to achieve?
 
-Founder: Their job is simple on paper — make sure every patient gets visited by the right person. But the goal underneath that is not burning out their scheduling team. Turnover for schedulers is brutal. They lose trained people every few months.
+Founder: Peace of mind, honestly. They wanted to go out, enjoy their evening, and not have "how am I getting home" as a background anxiety the whole time. The product let you be fully present at what you were doing because the exit was already handled.
 
-Interviewer: What stands in the way without your solution?
+Interviewer: What stood in the way without something like Uber?
 
-Founder: Three things. First, the spreadsheet. It's slow and you can't see in real time who's available or where they are. Second, there's no single view of certifications — you have to cross-check five different systems. Third, when something goes wrong mid-day, the manual rescheduling process takes almost as long as the original build.
+Founder: Three things. First, taxis were just unreliable — dispatch systems were broken, drivers cherry-picked short fares, supply dried up at night. Second, existing car service required booking hours in advance; you couldn't use it spontaneously. Third, there was zero information — you had no idea if a cab was actually coming or how far away it was. The whole experience was opaque and anxiety-inducing.
 
 --- PART 2: Baseline Feedback ---
 
-Interviewer: Here's the LLM-generated statement. Let me know what you'd change.
+Interviewer: Here's the statement the LLM generated from your public information. Tell me what you'd change.
 
-Founder: The customer description — it says "administrators and operations managers." That's not who actually uses this. It's schedulers. The operations manager might buy it, but the person whose daily work changes is the scheduler.
+Founder: The customer segment — "urban professionals and commuters." Commuters are not our customer. Commuters have transit options, they have routines, they optimize for price. Our customer is the person going somewhere social or professional at night. That distinction matters a lot because commuters are price-sensitive and habitual; our early users were neither.
 
-Interviewer: What about the context description?
+Interviewer: What about the context?
 
-Founder: "Building daily visit schedules across a large field-based workforce" — it's not wrong, but "large" is misleading. Our customers aren't large agencies. They're growing, mid-sized ones.
+Founder: "When traveling around a city and unable to find a taxi" — technically accurate but it undersells it. The context is specifically late-night situations where being late or stranded has real consequences. It's not "I need a ride." It's "I have somewhere important to be and I cannot leave it to chance."
 
 Interviewer: Any issues with the barriers listed?
 
-Founder: The third barrier about compliance violations — that's something I've never said publicly. We do see it internally but I wouldn't put that in public-facing material yet. The real third barrier is just the manual rescheduling chaos when something changes mid-day.`;
+Founder: The second one — "traditional car services are expensive." That framing is completely backwards. We were more expensive than a cab. 1.5 to 2x the meter rate. That was intentional — it kept the supply side happy and it was a quality signal. The idea that our early customers came to us to save money is wrong. They came despite paying more, because reliability was worth it to them. We never positioned around cost savings. That came from somewhere else entirely.`;
 
 export const TUTORIAL_SPLIT: TranscriptSplit = {
-  part1: `Interviewer: Let's start with what you've built. How would you describe Relay's product?
+  part1: `Interviewer: Let's start with the product. How would you describe what you built?
 
-Founder: We're an AI scheduling copilot for home health agencies. Basically, every morning a scheduler sits down and has to figure out which nurse or aide goes to which patient. There are all these constraints — patient preferences, certification requirements, travel time, continuity of care. It takes hours. We automate that.
+Founder: We built an iPhone app where you tap a button and a black car shows up in five minutes. Licensed chauffeurs, Lincoln Town Cars, every time. No dispatch call, no cash, no waiting to see if anyone comes.
 
-Interviewer: And who are your customers?
+Interviewer: Who were your first customers?
 
-Founder: We focus specifically on mid-sized agencies — roughly 50 to 300 staff. Larger ones have their own internal tech teams, and tiny agencies often just have one person wearing every hat. Our sweet spot is the scheduler at an agency that's grown to the point where a spreadsheet just isn't cutting it anymore.
+Founder: Professionals who were out at night — events, conferences, client dinners — and kept getting stranded trying to get home. Taxis in most cities were genuinely unreliable. You'd stand outside a venue at midnight and nothing would show up for 45 minutes. Our early adopters were people who'd been burned by that enough times that they'd pay more for a guaranteed ride.
 
-Interviewer: When does this problem feel most acute for them?
+Interviewer: When did the problem feel most acute for them?
 
-Founder: Two moments. Morning build — that's the two-hour window before the first visit when you're constructing the whole day. And then every time a cancellation hits. A nurse calls in sick at 7am, you've got 20 minutes to find someone certified for that patient before you're in violation.
+Founder: Late nights, mostly. The morning commute you can plan around — you build in buffer time, you take transit, whatever. But when you're wrapping up a conference dinner and need to get back to the hotel, or you have an early flight, that's when you feel the absence of a reliable option. The stakes are real. There's no good fallback.
 
-Interviewer: What are your customers ultimately trying to achieve?
+Interviewer: What were your customers ultimately trying to achieve?
 
-Founder: Their job is simple on paper — make sure every patient gets visited by the right person. But the goal underneath that is not burning out their scheduling team. Turnover for schedulers is brutal. They lose trained people every few months.
+Founder: Peace of mind, honestly. They wanted to go out, enjoy their evening, and not have "how am I getting home" as a background anxiety the whole time. The product let you be fully present at what you were doing because the exit was already handled.
 
-Interviewer: What stands in the way without your solution?
+Interviewer: What stood in the way without something like Uber?
 
-Founder: Three things. First, the spreadsheet. It's slow and you can't see in real time who's available or where they are. Second, there's no single view of certifications — you have to cross-check five different systems. Third, when something goes wrong mid-day, the manual rescheduling process takes almost as long as the original build.`,
-  part2: `Interviewer: Here's the LLM-generated statement. Let me know what you'd change.
+Founder: Three things. First, taxis were just unreliable — dispatch systems were broken, drivers cherry-picked short fares, supply dried up at night. Second, existing car service required booking hours in advance; you couldn't use it spontaneously. Third, there was zero information — you had no idea if a cab was actually coming or how far away it was. The whole experience was opaque and anxiety-inducing.`,
+  part2: `Interviewer: Here's the statement the LLM generated from your public information. Tell me what you'd change.
 
-Founder: The customer description — it says "administrators and operations managers." That's not who actually uses this. It's schedulers. The operations manager might buy it, but the person whose daily work changes is the scheduler.
+Founder: The customer segment — "urban professionals and commuters." Commuters are not our customer. Commuters have transit options, they have routines, they optimize for price. Our customer is the person going somewhere social or professional at night. That distinction matters a lot because commuters are price-sensitive and habitual; our early users were neither.
 
-Interviewer: What about the context description?
+Interviewer: What about the context?
 
-Founder: "Building daily visit schedules across a large field-based workforce" — it's not wrong, but "large" is misleading. Our customers aren't large agencies. They're growing, mid-sized ones.
+Founder: "When traveling around a city and unable to find a taxi" — technically accurate but it undersells it. The context is specifically late-night situations where being late or stranded has real consequences. It's not "I need a ride." It's "I have somewhere important to be and I cannot leave it to chance."
 
 Interviewer: Any issues with the barriers listed?
 
-Founder: The third barrier about compliance violations — that's something I've never said publicly. We do see it internally but I wouldn't put that in public-facing material yet. The real third barrier is just the manual rescheduling chaos when something changes mid-day.`,
+Founder: The second one — "traditional car services are expensive." That framing is completely backwards. We were more expensive than a cab. 1.5 to 2x the meter rate. That was intentional — it kept the supply side happy and it was a quality signal. The idea that our early customers came to us to save money is wrong. They came despite paying more, because reliability was worth it to them. We never positioned around cost savings. That came from somewhere else entirely.`,
   reasoning: 'Part 1 ends after the five structured discovery questions. Part 2 begins when the interviewer presents the LLM-generated statement for feedback.'
 };
 
@@ -116,8 +120,8 @@ export const TUTORIAL_PART1_RESULT: StatementResult = {
   customers: [
     {
       id: 'tut-c-0',
-      description: 'Schedulers at mid-sized home healthcare agencies (50–300 staff)',
-      quotes: ["\"Our sweet spot is the scheduler at an agency that's grown to the point where a spreadsheet just isn't cutting it anymore.\""],
+      description: 'Professionals and event-goers who kept getting stranded late at night after conferences and dinners',
+      quotes: ['"Our early adopters were people who\'d been burned by that enough times that they\'d pay more for a guaranteed ride."'],
       isVerified: false,
       userNotes: ''
     }
@@ -125,8 +129,8 @@ export const TUTORIAL_PART1_RESULT: StatementResult = {
   contexts: [
     {
       id: 'tut-ctx-0',
-      description: 'During the morning schedule build and whenever same-day cancellations occur',
-      quotes: ['"Two moments. Morning build..."', '"A nurse calls in sick at 7am, you\'ve got 20 minutes."'],
+      description: 'Late nights after events, conferences, and dinners when being stranded has real consequences',
+      quotes: ['"When you\'re wrapping up a conference dinner and need to get back to the hotel... The stakes are real. There\'s no good fallback."'],
       isVerified: false,
       userNotes: ''
     }
@@ -134,8 +138,8 @@ export const TUTORIAL_PART1_RESULT: StatementResult = {
   goals: [
     {
       id: 'tut-g-0',
-      description: 'Ensure every patient is visited by the right caregiver without burning out the scheduling team',
-      quotes: ['"The goal underneath that is not burning out their scheduling team. Turnover for schedulers is brutal."'],
+      description: 'Eliminate the anxiety of "how am I getting home" so you can be fully present at what you\'re doing',
+      quotes: ['"The product let you be fully present at what you were doing because the exit was already handled."'],
       isVerified: false,
       userNotes: ''
     }
@@ -143,41 +147,41 @@ export const TUTORIAL_PART1_RESULT: StatementResult = {
   barriers: [
     {
       id: 'tut-b-0',
-      description: 'Spreadsheet scheduling is slow with no real-time visibility into availability or location',
-      quotes: ["\"The spreadsheet. It's slow and you can't see in real time who's available or where they are.\""],
+      description: 'Taxis were unreliable — dispatch systems were broken, drivers cherry-picked fares, supply dried up at night',
+      quotes: ['"You\'d stand outside a venue at midnight and nothing would show up for 45 minutes."'],
       isVerified: false,
       userNotes: ''
     },
     {
       id: 'tut-b-1',
-      description: 'No single view of certifications; requires cross-checking multiple systems',
-      quotes: ["\"There's no single view of certifications — you have to cross-check five different systems.\""],
+      description: 'Existing car service required booking hours in advance — no good for spontaneous or last-minute needs',
+      quotes: ['"Existing car service required booking hours in advance; you couldn\'t use it spontaneously."'],
       isVerified: false,
       userNotes: ''
     },
     {
       id: 'tut-b-2',
-      description: 'Manual rescheduling after cancellations takes nearly as long as the original build',
-      quotes: ['"When something goes wrong mid-day, the manual rescheduling process takes almost as long as the original build."'],
+      description: 'Complete information opacity — no way to know if a cab was coming or how far away it was',
+      quotes: ['"There was zero information — you had no idea if a cab was actually coming or how far away it was."'],
       isVerified: false,
       userNotes: ''
     }
   ],
-  draftStatement: "Relay helps schedulers at mid-sized home healthcare agencies automate daily visit assignment and same-day rescheduling so every patient is seen by the right caregiver — without exhausting the scheduling team."
+  draftStatement: "Uber helps professionals and event-goers get a reliable black car in minutes so they can be present at what they're doing — without the anxiety of not knowing how they'll get home."
 };
 
 export const TUTORIAL_COMPARISON_ROWS: ComparisonRow[] = [
   {
     id: 'tut-row-solution',
     component: 'Solution',
-    baselineText: 'AI scheduling platform that automatically assigns nurses and home health aides to patient visits.',
-    transcriptModification: 'AI scheduling copilot that matches caregivers to patients and handles same-day changes automatically.',
-    reviewerEdit: 'AI scheduling copilot that matches caregivers to patients and handles same-day changes automatically.',
+    baselineText: 'On-demand smartphone app that dispatches a professional black car to your location in minutes.',
+    transcriptModification: 'One-tap black car app for people who need to be somewhere and can\'t leave transportation to chance.',
+    reviewerEdit: 'One-tap black car app for people who need to be somewhere and can\'t leave transportation to chance.',
     type: 'Modification',
-    transcriptEvidence: "\"We're an AI scheduling copilot for home health agencies.\"",
-    publicSupport: 'Supported by website copy.',
-    publicEvidence: 'AI-powered scheduling platform',
-    publicEvidenceContext: "Relay's website describes a product that eliminates \"the 2-hour morning scramble\".",
+    transcriptEvidence: '"We built an iPhone app where you tap a button and a black car shows up in five minutes."',
+    publicSupport: 'Supported by website and press coverage.',
+    publicEvidence: 'one-tap iPhone experience that dispatches a black car',
+    publicEvidenceContext: "UberCab's launch press described a one-tap iPhone experience that dispatches a black car to your location in minutes.",
     isSupportedByPublic: true,
     isAccepted: false,
     reviewerNotes: '',
@@ -186,11 +190,11 @@ export const TUTORIAL_COMPARISON_ROWS: ComparisonRow[] = [
   {
     id: 'tut-row-customer',
     component: 'Customer',
-    baselineText: 'Home healthcare agency administrators and operations managers.',
-    transcriptModification: 'Schedulers at mid-sized home healthcare agencies (50–300 staff).',
-    reviewerEdit: 'Schedulers at mid-sized home healthcare agencies (50–300 staff).',
+    baselineText: 'Urban professionals and commuters who need reliable, on-demand transportation around the city.',
+    transcriptModification: 'Professionals and event-goers — people out late at night at conferences and dinners who keep getting stranded.',
+    reviewerEdit: 'Professionals and event-goers — people out late at night at conferences and dinners who keep getting stranded.',
     type: 'Modification',
-    transcriptEvidence: '"That\'s not who actually uses this. It\'s schedulers."',
+    transcriptEvidence: '"Commuters are not our customer... Our customer is the person going somewhere social or professional at night."',
     publicSupport: 'Not explicitly stated in public info.',
     publicEvidence: '',
     publicEvidenceContext: '',
@@ -202,14 +206,14 @@ export const TUTORIAL_COMPARISON_ROWS: ComparisonRow[] = [
   {
     id: 'tut-row-context',
     component: 'Context',
-    baselineText: 'When building daily visit schedules across a large field-based workforce with complex patient needs.',
-    transcriptModification: 'Every morning during the schedule build and whenever a same-day cancellation occurs.',
-    reviewerEdit: 'Every morning during the schedule build and whenever a same-day cancellation occurs.',
+    baselineText: 'When traveling around a city and unable to quickly find or hail a traditional taxi.',
+    transcriptModification: 'Late-night situations after events and dinners where being stranded has real consequences.',
+    reviewerEdit: 'Late-night situations after events and dinners where being stranded has real consequences.',
     type: 'Modification',
-    transcriptEvidence: '"Two moments. Morning build... And then every time a cancellation hits."',
+    transcriptEvidence: '"The context is specifically late-night situations where being late or stranded has real consequences."',
     publicSupport: 'Partially supported.',
-    publicEvidence: 'eliminates "the 2-hour morning scramble"',
-    publicEvidenceContext: "Relay's website describes a product that eliminates \"the 2-hour morning scramble\" that home health schedulers face each day.",
+    publicEvidence: 'No cash, no phone dispatch, no uncertainty.',
+    publicEvidenceContext: "Early TechCrunch coverage emphasized the seamlessness: open the app, see nearby cars on a map, tap once to request. No cash, no phone dispatch, no uncertainty.",
     isSupportedByPublic: true,
     isAccepted: false,
     reviewerNotes: '',
@@ -218,14 +222,14 @@ export const TUTORIAL_COMPARISON_ROWS: ComparisonRow[] = [
   {
     id: 'tut-row-goal',
     component: 'Goal',
-    baselineText: 'Ensure every patient gets the right caregiver at the right time, while keeping staff utilization high.',
-    transcriptModification: 'Ensure every patient is visited by the right caregiver without burning out the scheduling team.',
-    reviewerEdit: 'Ensure every patient is visited by the right caregiver without burning out the scheduling team.',
+    baselineText: 'Get to their destination reliably and comfortably without the hassle of cash or phone dispatch.',
+    transcriptModification: 'Eliminate the background anxiety of "how am I getting home" so you can be fully present at what you\'re doing.',
+    reviewerEdit: 'Eliminate the background anxiety of "how am I getting home" so you can be fully present at what you\'re doing.',
     type: 'Modification',
-    transcriptEvidence: '"The goal underneath that is not burning out their scheduling team."',
+    transcriptEvidence: '"They wanted to go out, enjoy their evening, and not have \'how am I getting home\' as a background anxiety the whole time."',
     publicSupport: 'Partially supported.',
-    publicEvidence: '28% improvement in staff retention',
-    publicEvidenceContext: 'Case studies highlight a 35% drop in missed visits and a 28% improvement in staff retention at pilot agencies.',
+    publicEvidence: "everyone's private driver",
+    publicEvidenceContext: "UberCab's launch press described the service as \"everyone's private driver\" — a one-tap iPhone experience that dispatches a black car.",
     isSupportedByPublic: true,
     isAccepted: false,
     reviewerNotes: '',
@@ -234,11 +238,11 @@ export const TUTORIAL_COMPARISON_ROWS: ComparisonRow[] = [
   {
     id: 'tut-row-barrier',
     component: 'Barrier',
-    baselineText: 'Last-minute cancellations cascade into missed visits and compliance violations.',
-    transcriptModification: 'Manual rescheduling after cancellations takes nearly as long as the original morning build.',
-    reviewerEdit: 'Manual rescheduling after cancellations takes nearly as long as the original morning build.',
+    baselineText: 'Traditional car services are expensive and require booking hours in advance.',
+    transcriptModification: 'Existing car service required booking hours in advance — spontaneous use was impossible.',
+    reviewerEdit: 'Existing car service required booking hours in advance — spontaneous use was impossible.',
     type: 'Hallucination',
-    transcriptEvidence: '"The third barrier about compliance violations — that\'s something I\'ve never said publicly... The real third barrier is just the manual rescheduling chaos when something changes mid-day."',
+    transcriptEvidence: '"That framing is completely backwards. We were more expensive than a cab. 1.5 to 2x the meter rate... We never positioned around cost savings."',
     publicSupport: 'Not found in public info.',
     publicEvidence: '',
     publicEvidenceContext: '',
@@ -251,30 +255,21 @@ export const TUTORIAL_COMPARISON_ROWS: ComparisonRow[] = [
 
 export const TUTORIAL_COMPONENT_EVIDENCE: ComponentEvidence = {
   customer: {
-    context: 'Founder explicitly corrected "administrators and operations managers" — the actual user is the scheduler.',
-    core: 'Schedulers at mid-sized home healthcare agencies (50–300 staff)'
+    context: 'Founder explicitly rejected "commuters" — the actual user is the late-night event-goer willing to pay a premium.',
+    core: 'Professionals and event-goers out late at night at conferences and client dinners'
   },
   context: {
-    context: 'Two distinct trigger moments: the 2-hour morning build and same-day cancellations.',
-    core: 'Morning schedule build and same-day cancellation events'
+    context: 'The problem is acute specifically when you\'re out at night after an event and the stakes of being stranded are high.',
+    core: 'Late-night events, conferences, and dinners when stranded has real consequences'
   },
   goal: {
-    context: 'Founder revealed the underlying job: scheduler retention, not just visit coverage.',
-    core: 'Visit every patient with the right caregiver, without burning out the scheduling team'
+    context: 'The goal is psychological, not logistical — eliminating transportation anxiety so you can be present.',
+    core: 'Peace of mind about getting home so you can focus on what you\'re doing'
   },
   barrier: {
-    context: 'The compliance barrier is a hallucination — never stated publicly. Real barrier is the manual rescheduling burden.',
-    core: 'Manual rescheduling after cancellations'
+    context: 'The "expensive car service" barrier is a hallucination — Uber was 1.5–2x cab rates and proud of it. The real barrier was advance-booking inflexibility.',
+    core: 'Existing car service required advance booking; no spontaneous option existed'
   }
-};
-
-export const TUTORIAL_PROBLEM_CHARACTERISTICS: ProblemCharacteristicsData = {
-  q1: ['High – Many interacting factors; easy to make mistakes without deeper knowledge'],
-  q2: ['Recurring – Occurs regularly, continuously, or on a predictable cadence (e.g., daily, weekly, monthly)'],
-  q3: ['High – Meaningful consequences for finances, health, safety, or long-term outcomes'],
-  q4: ['Expert-present – An expert is typically involved to get a good or safe outcome'],
-  q5: ['Service', 'Efficiency'],
-  q6: 'Founder was formerly a home health aide and watched schedulers burn out firsthand at a prior employer. The problem was invisible to outsiders but acute to anyone who had worked in the field.'
 };
 
 // ─── Tutorial sidebar step definitions ───────────────────────────────────────
@@ -294,7 +289,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'tut-welcome',
     wizardStep: WizardStep.PUBLIC_INFO,
     title: 'Welcome to Founder Problem Analyst',
-    body: "This tool helps research teams run structured interviews with startup founders. You'll walk through six steps: gather public info → capture the founder's perspective → review the AI baseline → characterize the problem → upload the transcript → compare and export.\n\nThis tutorial uses a demo company — Relay, an AI scheduling tool for home health agencies. No real API calls are made.",
+    body: "This tool helps research teams run structured interviews with startup founders. You'll walk through five steps: gather public info → capture the founder's perspective → review the AI baseline → upload the transcript → compare and export.\n\nThis tutorial uses Uber (2010) as the demo case. No real API calls are made.",
     lookFor: '[PLACEHOLDER: What the interviewer should know before their first session]',
     tip: '[PLACEHOLDER: Logistical prep tips before the Zoom call]'
   },
@@ -302,8 +297,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'tut-public-info',
     wizardStep: WizardStep.PUBLIC_INFO,
     title: 'Step 1 — Public Information',
-    body: "Before the interview, you gather public information about the company. Paste the company URL and click Fetch, or upload a text file. Pitchbook data can be pasted separately.\n\nThe demo shows Relay's public info already loaded.",
-    lookFor: "The public info describes the customer as \"administrators and operations managers.\" Notice how this will be corrected by the founder in Part 2.",
+    body: "Before the interview, you gather public information about the company. Paste the company URL and click Fetch, or upload a text file. Pitchbook data can be pasted separately.\n\nThe demo shows Uber's early 2010 public info already loaded.",
+    lookFor: "The public info describes the customer broadly as anyone who wants a private driver. Notice how the LLM will make an inference about cost-consciousness that the founder will later explicitly reject.",
     tip: '[PLACEHOLDER: Best sources for public info in the research context]'
   },
   {
@@ -311,15 +306,15 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     wizardStep: WizardStep.PUBLIC_INFO,
     title: 'Step 1 — Generate the Baseline',
     body: "Click \"Generate Baseline\" to have the LLM extract a structured problem statement from the public info. This becomes the artifact you'll show the founder during Part 2 of the interview.\n\nThe demo baseline is pre-generated — see the preview panel below the button.",
-    lookFor: "The LLM says the customer is \"administrators and operations managers.\" The founder will correct this to \"schedulers\" — that gap is the key insight the interview surfaces.",
+    lookFor: "The LLM says the customer is \"urban professionals and commuters\" and lists \"traditional car services are expensive\" as a barrier. The founder will correct both — one is a mismatch, one is a hallucination.",
     tip: "Generate the baseline before the interview starts, so it's ready to show the founder."
   },
   {
     id: 'tut-founder-input',
     wizardStep: WizardStep.FOUNDER_INPUT,
     title: 'Step 2 — Capture Founder Perspective',
-    body: "During Part 1 of the interview, capture the founder's unprompted answers to five questions: Solution, Customer, Context, Goal, and Barriers. Each field has a \"View Script\" button with the exact question to read aloud.\n\nThe demo shows Relay's answers already filled in.",
-    lookFor: "Compare the founder's Customer answer (\"schedulers at mid-sized agencies\") to the LLM baseline (\"administrators and operations managers\") from Step 1.",
+    body: "During Part 1 of the interview, capture the founder's unprompted answers to five questions: Solution, Customer, Context, Goal, and Barriers. Each field has a \"View Script\" button with the exact question to read aloud.\n\nThe demo shows Uber's answers already filled in.",
+    lookFor: "Compare the founder's Customer answer (\"tech professionals and event-goers\") to the LLM baseline (\"urban professionals and commuters\"). The founder will later say commuters are explicitly NOT the target.",
     tip: 'Read the scripts verbatim to keep interviews consistent across founders.'
   },
   {
@@ -334,40 +329,32 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'tut-baseline-review',
     wizardStep: WizardStep.BASELINE_REVIEW,
     title: 'Step 3 — Review the LLM Baseline',
-    body: "In Part 2 of the interview, you show the founder the LLM-generated statement and ask them to correct it. Update each field here as the founder reacts.\n\nThe demo shows the reviewed version with Relay's founder corrections already applied.",
-    lookFor: "The Customer field now reads \"schedulers\" — not the LLM's \"administrators.\" This edit flows through to the final comparison table.",
+    body: "In Part 2 of the interview, you show the founder the LLM-generated statement and ask them to correct it. Update each field here as the founder reacts.\n\nThe demo shows the reviewed version with the founder's corrections already applied.",
+    lookFor: "The Customer field now reads \"tech professionals and event-goers\" — not the LLM's \"commuters.\" The Barrier about cost has been stripped down to reflect only what the founder confirmed.",
     tip: "Read the script at the top of this step before showing the statement to the founder."
-  },
-  {
-    id: 'tut-problem-chars',
-    wizardStep: WizardStep.PROBLEM_CHARACTERISTICS,
-    title: 'Step 4 — Problem Characteristics',
-    body: "After the core interview, ask four short questions to categorize the nature of the problem: information intensity, frequency, stakes, and expert dependency. Also ask how the founder discovered the problem.\n\nThe demo shows Relay's ratings pre-filled.",
-    lookFor: "Relay is rated High on both information intensity and stakes — scheduling errors have direct consequences for patient care.",
-    tip: '[PLACEHOLDER: How to handle founders who are uncertain about a rating]'
   },
   {
     id: 'tut-transcript',
     wizardStep: WizardStep.TRANSCRIPT_UPLOAD,
-    title: 'Step 5 — Upload the Transcript',
+    title: 'Step 4 — Upload the Transcript',
     body: "After the interview, upload the recording for auto-transcription or paste the transcript text directly. Speaker diarization labels are applied automatically.\n\nThe demo transcript is pre-loaded — it includes both Part 1 (discovery) and Part 2 (baseline feedback).",
-    lookFor: "Scroll through to see how Part 1 (founder's unprompted answers) differs in tone from Part 2 (founder reacting to the LLM statement).",
+    lookFor: "Scroll to the Part 2 section and find the founder's response to the cost barrier: \"That framing is completely backwards. We were more expensive than a cab.\" That's the hallucination moment.",
     tip: '[PLACEHOLDER: Audio file format tips and size limits]'
   },
   {
     id: 'tut-split',
     wizardStep: WizardStep.TRANSCRIPT_UPLOAD,
     requiresSplit: true,
-    title: 'Step 5 — Transcript Split',
-    body: "The AI splits the transcript into Part 1 (discovery questions) and Part 2 (founder feedback on the LLM baseline). Review and adjust the boundary if needed.\n\nIn the demo, the split falls between the structured questions and the baseline review.",
-    lookFor: "Part 1 ends when the interviewer finishes the five questions. Part 2 starts when the interviewer says \"Here's the LLM-generated statement.\"",
+    title: 'Step 4 — Transcript Split',
+    body: "The AI splits the transcript into Part 1 (discovery questions) and Part 2 (founder feedback on the LLM baseline). Review and adjust the boundary if needed.\n\nIn the demo, the split falls between the five structured questions and the baseline review section.",
+    lookFor: "Part 1 ends after \"The whole experience was opaque and anxiety-inducing.\" Part 2 starts when the interviewer says \"Here's the statement the LLM generated.\"",
     tip: "If the split is off, drag the boundary or edit Part 1 and Part 2 text directly before confirming."
   },
   {
     id: 'tut-split-confirm',
     wizardStep: WizardStep.TRANSCRIPT_UPLOAD,
     requiresSplit: true,
-    title: 'Step 5 — Confirm and Analyze',
+    title: 'Step 4 — Confirm and Analyze',
     body: "Once the split looks right, click \"Confirm Split & Analyze\" to run the comparison. This generates the feedback table using the founder's Part 2 corrections.\n\nIn a real session this takes 10–15 seconds. The demo result is pre-loaded.",
     lookFor: '[PLACEHOLDER: What the three parallel AI calls do]',
     tip: 'The analysis runs three calls in parallel. If one fails, re-run the split step.'
@@ -375,15 +362,15 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'tut-comparison',
     wizardStep: WizardStep.PART2_COMPARISON,
-    title: 'Step 6 — Review Feedback',
-    body: "The comparison table shows how the founder's Part 2 comments map onto the LLM baseline. Each row is typed: Modification (founder changed something), Hallucination (LLM added something never said), Omission (something missing), or Confirmation.\n\nThe demo shows five rows for Relay.",
-    lookFor: "The Barrier row is labeled \"Hallucination\" — the LLM described a compliance concern the founder explicitly said they've never stated publicly. This is the most analytically interesting row.",
+    title: 'Step 5 — Review Feedback',
+    body: "The comparison table shows how the founder's Part 2 comments map onto the LLM baseline. Each row is typed: Modification (founder changed something), Hallucination (LLM added something never said), Omission (something missing), or Confirmation.\n\nThe demo shows five rows for Uber.",
+    lookFor: "The Barrier row is labeled \"Hallucination\" — the LLM inferred that cost was a barrier, but the founder explicitly said Uber was more expensive than taxis and that cost was never a selling point. This is one of the most analytically revealing row types.",
     tip: 'Use the Reviewer Edit field to write a polished version of each component after discussion.'
   },
   {
     id: 'tut-export',
     wizardStep: WizardStep.PART2_COMPARISON,
-    title: 'Step 6 — Export',
+    title: 'Step 5 — Export',
     body: "When review is complete, click \"Download JSON\" to save the full research record. The JSON includes public info, all statement versions, consent status, transcript, split data, and the comparison table.\n\nThis file is the structured output for the research database.",
     lookFor: '[PLACEHOLDER: What the research team does with the exported JSON]',
     tip: 'Export immediately after review — the tool does not auto-save.'

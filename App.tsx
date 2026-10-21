@@ -2,7 +2,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SplitVerifier from './components/SplitVerifier';
 import BaselineReview from './components/BaselineReview';
-import ProblemCharacteristics, { ProblemCharacteristicsData } from './components/ProblemCharacteristics';
 import ComparisonTable from './components/ComparisonTable';
 import {
   analyzeSegment, 
@@ -48,15 +47,10 @@ import {
   TUTORIAL_PART1_RESULT,
   TUTORIAL_COMPARISON_ROWS,
   TUTORIAL_COMPONENT_EVIDENCE,
-  TUTORIAL_PROBLEM_CHARACTERISTICS,
   type TutorialStep
 } from './utils/tutorialData';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
 import { stripBarrierLeadIn, stripBarrierLeadInList } from './utils/barriers';
-import {
-  parseImportedProblemCharacteristics,
-  type ProblemCharacteristicsRaw
-} from './utils/problemCharacteristics';
 import { INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK } from './utils/featureFlags';
 import {
   createShuffledBaselineReviewFieldOrder,
@@ -117,7 +111,6 @@ type TourSample = {
   part1Result?: StatementResult;
   comparisonRows: ComparisonRow[];
   componentEvidence: ComponentEvidence;
-  problemCharacteristicsData?: ProblemCharacteristicsData;
   part2Notes?: string;
 };
 
@@ -133,7 +126,6 @@ const TOUR_SAMPLE_CONTENT: Record<LocaleKey, TourSample> = {
     part1Result: TUTORIAL_PART1_RESULT,
     comparisonRows: TUTORIAL_COMPARISON_ROWS,
     componentEvidence: TUTORIAL_COMPONENT_EVIDENCE,
-    problemCharacteristicsData: TUTORIAL_PROBLEM_CHARACTERISTICS,
     part2Notes: "Demo: notice the Barrier row — the LLM described a compliance concern the founder explicitly said they've never stated publicly."
   },
   zh: {
@@ -147,7 +139,6 @@ const TOUR_SAMPLE_CONTENT: Record<LocaleKey, TourSample> = {
     part1Result: TUTORIAL_PART1_RESULT,
     comparisonRows: TUTORIAL_COMPARISON_ROWS,
     componentEvidence: TUTORIAL_COMPONENT_EVIDENCE,
-    problemCharacteristicsData: TUTORIAL_PROBLEM_CHARACTERISTICS,
   }
 };
 
@@ -211,10 +202,6 @@ function App() {
   const [baselineSource, setBaselineSource] = useState<string>('');
   const [baselineLocale, setBaselineLocale] = useState<LocaleKey>('en');
 
-  // Step 3b: Problem Characteristics
-  const [problemCharacteristicsData, setProblemCharacteristicsData] = useState<ProblemCharacteristicsData | undefined>(undefined);
-  const [problemCharacteristicsRaw, setProblemCharacteristicsRaw] = useState<ProblemCharacteristicsRaw | null>(null);
-
   // Step 4: Transcript Part 1
   const [transcript, setTranscript] = useState<string>('');
   const [splitData, setSplitData] = useState<TranscriptSplit | null>(null);
@@ -276,8 +263,6 @@ function App() {
     setBaselineLLMRaw4o(sample.baseline);
     setBaselineGpt52Layer(null);
     setFounderInput(sample.founderInput || sample.baseline);
-    setProblemCharacteristicsData(sample.problemCharacteristicsData);
-    setProblemCharacteristicsRaw(null);
     setTranscript(sample.transcript);
     setDiarizedPreview(sample.transcript);
     setSplitData(null);
@@ -312,8 +297,6 @@ function App() {
       baselineLLMRaw4o,
       baselineGpt52Layer,
       founderInput,
-      problemCharacteristicsData,
-      problemCharacteristicsRaw,
       transcript,
       splitData,
       part1Result,
@@ -362,8 +345,6 @@ function App() {
     setBaselineLLMRaw4o(snapshot.baselineLLMRaw4o || null);
     setBaselineGpt52Layer(snapshot.baselineGpt52Layer || null);
     setFounderInput(snapshot.founderInput);
-    setProblemCharacteristicsData(snapshot.problemCharacteristicsData);
-    setProblemCharacteristicsRaw(snapshot.problemCharacteristicsRaw || null);
     setTranscript(snapshot.transcript);
     setSplitData(snapshot.splitData);
     setPart1Result(snapshot.part1Result);
@@ -420,6 +401,100 @@ function App() {
       setSplitData(null);
     }
   }, [isTourOpen, tourSteps, tourStepIndex]);
+
+  // Tutorial animation: stream public info text when on tut-public-info step
+  useEffect(() => {
+    if (!isTourOpen) return;
+    if (tourSteps[tourStepIndex]?.id !== 'tut-public-info') return;
+
+    setPublicInfo('');
+    setHasFetchedPublicInfo(false);
+
+    let streamInterval: ReturnType<typeof setInterval> | null = null;
+    const fetchDelay = setTimeout(() => {
+      setHasFetchedPublicInfo(true);
+      const fullText = TUTORIAL_PUBLIC_INFO_TEXT;
+      let charIdx = 0;
+      streamInterval = setInterval(() => {
+        charIdx = Math.min(charIdx + 6, fullText.length);
+        setPublicInfo(fullText.slice(0, charIdx));
+        if (charIdx >= fullText.length && streamInterval) clearInterval(streamInterval);
+      }, 16);
+    }, 600);
+
+    return () => {
+      clearTimeout(fetchDelay);
+      if (streamInterval) clearInterval(streamInterval);
+    };
+  }, [isTourOpen, tourStepIndex, tourSteps]);
+
+  // Tutorial animation: animate founder edits on tut-baseline-review step
+  useEffect(() => {
+    if (!isTourOpen) return;
+    if (tourSteps[tourStepIndex]?.id !== 'tut-baseline-review') return;
+
+    // Start from LLM baseline so reviewers see the "before" state
+    setBaselineStatement({ ...TUTORIAL_BASELINE });
+
+    const llmCustomer = TUTORIAL_BASELINE.CUSTOMER_SEGMENT;
+    const founderCustomer = TUTORIAL_FOUNDER_INPUT_DATA.CUSTOMER_SEGMENT;
+    const llmContext = TUTORIAL_BASELINE.LIFE_BUSINESS_CONTEXT;
+    const founderContext = TUTORIAL_FOUNDER_INPUT_DATA.LIFE_BUSINESS_CONTEXT;
+
+    let t1: ReturnType<typeof setTimeout>;
+    let deleteInterval: ReturnType<typeof setInterval> | null = null;
+    let typeInterval: ReturnType<typeof setInterval> | null = null;
+    let t2: ReturnType<typeof setTimeout>;
+    let deleteInterval2: ReturnType<typeof setInterval> | null = null;
+    let typeInterval2: ReturnType<typeof setInterval> | null = null;
+
+    t1 = setTimeout(() => {
+      // Phase 1a: delete LLM customer text
+      let len = llmCustomer.length;
+      deleteInterval = setInterval(() => {
+        len = Math.max(0, len - 4);
+        setBaselineStatement(prev => prev ? { ...prev, CUSTOMER_SEGMENT: llmCustomer.slice(0, len) } : prev);
+        if (len === 0 && deleteInterval) {
+          clearInterval(deleteInterval);
+          // Phase 1b: type founder customer text
+          let typeIdx = 0;
+          typeInterval = setInterval(() => {
+            typeIdx = Math.min(typeIdx + 3, founderCustomer.length);
+            setBaselineStatement(prev => prev ? { ...prev, CUSTOMER_SEGMENT: founderCustomer.slice(0, typeIdx) } : prev);
+            if (typeIdx >= founderCustomer.length && typeInterval) {
+              clearInterval(typeInterval);
+              // After customer done, animate context field
+              t2 = setTimeout(() => {
+                let len2 = llmContext.length;
+                deleteInterval2 = setInterval(() => {
+                  len2 = Math.max(0, len2 - 4);
+                  setBaselineStatement(prev => prev ? { ...prev, LIFE_BUSINESS_CONTEXT: llmContext.slice(0, len2) } : prev);
+                  if (len2 === 0 && deleteInterval2) {
+                    clearInterval(deleteInterval2);
+                    let typeIdx2 = 0;
+                    typeInterval2 = setInterval(() => {
+                      typeIdx2 = Math.min(typeIdx2 + 3, founderContext.length);
+                      setBaselineStatement(prev => prev ? { ...prev, LIFE_BUSINESS_CONTEXT: founderContext.slice(0, typeIdx2) } : prev);
+                      if (typeIdx2 >= founderContext.length && typeInterval2) clearInterval(typeInterval2);
+                    }, 30);
+                  }
+                }, 20);
+              }, 600);
+            }
+          }, 28);
+        }
+      }, 18);
+    }, 1400);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2!);
+      if (deleteInterval) clearInterval(deleteInterval);
+      if (typeInterval) clearInterval(typeInterval);
+      if (deleteInterval2) clearInterval(deleteInterval2);
+      if (typeInterval2) clearInterval(typeInterval2);
+    };
+  }, [isTourOpen, tourStepIndex, tourSteps]);
 
   // --- Logic & Handlers ---
 
@@ -570,8 +645,6 @@ function App() {
       setBaselineLLMRaw4o(null);
       setBaselineGpt52Layer(null);
       setBaselineSource('');
-      setProblemCharacteristicsData(undefined);
-      setProblemCharacteristicsRaw(null);
       setTranscript('');
       setSplitData(null);
       setPart1Result(null);
@@ -610,8 +683,6 @@ function App() {
       setBaselineLLMRaw4o(null);
       setBaselineGpt52Layer(null);
       setBaselineSource('');
-      setProblemCharacteristicsData(undefined);
-      setProblemCharacteristicsRaw(null);
       setStatus(AppStatus.SUCCESS);
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -681,9 +752,9 @@ function App() {
     setStatus(AppStatus.IDLE); 
   };
 
-  // Step 3 -> Step 3b
+  // Step 3 -> Step 4
   const confirmBaseline = () => {
-    setStep(WizardStep.PROBLEM_CHARACTERISTICS);
+    setStep(WizardStep.TRANSCRIPT_UPLOAD);
   };
 
   // Step 4 Split Logic
@@ -870,8 +941,6 @@ function App() {
       founderRecordConsent,
       internationalFounder,
       founderDataConsent,
-      problemCharacteristics: problemCharacteristicsData ?? null,
-      problemCharacteristicsRaw
     });
     const filename = buildFilename('json');
     const blob = new Blob([json], { type: 'application/json' });
@@ -1080,11 +1149,6 @@ function App() {
     setFounderDataConsent(importedInternational ? importedDataConsent : false);
     setIsConsentOpen(false);
 
-    const pcBlock = data?.problem_characteristics || data?.problemCharacteristics || null;
-    const importedProblemCharacteristics = parseImportedProblemCharacteristics(pcBlock);
-    setProblemCharacteristicsData(importedProblemCharacteristics.data);
-    setProblemCharacteristicsRaw(importedProblemCharacteristics.rawLegacy);
-
     setComponentEvidence(null);
     setShowGuideGlow(false);
     setIsGuideOpen(false);
@@ -1133,7 +1197,6 @@ function App() {
     { id: WizardStep.PUBLIC_INFO, label: t.steps.publicInfo },
     { id: WizardStep.FOUNDER_INPUT, label: t.steps.founderInput },
     { id: WizardStep.BASELINE_REVIEW, label: t.steps.baselineReview },
-    { id: WizardStep.PROBLEM_CHARACTERISTICS, label: t.steps.problemCharacteristics },
     { id: WizardStep.TRANSCRIPT_UPLOAD, label: t.steps.transcriptUpload },
     { id: WizardStep.PART2_COMPARISON, label: t.steps.part2Comparison }
   ];
@@ -1142,7 +1205,6 @@ function App() {
     if (id === WizardStep.PUBLIC_INFO) return true;
     if (id === WizardStep.FOUNDER_INPUT) return Boolean(baselineStatement);
     if (id === WizardStep.BASELINE_REVIEW) return Boolean(baselineStatement);
-    if (id === WizardStep.PROBLEM_CHARACTERISTICS) return Boolean(baselineStatement);
     if (id === WizardStep.TRANSCRIPT_UPLOAD) return Boolean(baselineStatement);
     if (id === WizardStep.PART2_COMPARISON) return comparisonRows.length > 0;
     return false;
@@ -1678,68 +1740,6 @@ function App() {
               />
             </div>
 
-            {/* Barriers */}
-            <div className="space-y-3">
-              <div className="flex items-start justify-between">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                  {t.founder.labels.barriers}
-                </label>
-
-                <div className="flex items-center gap-3">
-                  <ScriptDropdown>
-                    <div className="text-sm text-gray-600 whitespace-pre-line">
-      {stripIndent(t.founder.scripts.barriers)}
-                    </div>
-                  </ScriptDropdown>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateFounderInput('SPECIFIC_BARRIERS', [
-                        ...(founderInput.SPECIFIC_BARRIERS || []),
-                        ""
-                      ])
-                    }
-                    className="text-xs text-purple-600 hover:underline font-bold whitespace-nowrap"
-                  >
-                    {t.founder.addBarrier}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {(founderInput.SPECIFIC_BARRIERS || []).map((barrier, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <span className="text-gray-400 text-sm py-2 w-4 text-right">
-                      {idx + 1}.
-                    </span>
-
-                    <input
-                      type="text"
-                      className="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
-                      placeholder={t.founder.placeholders.barrier}
-                      value={stripBarrierLeadIn(barrier)}
-                      onChange={(e) => {
-                        const updated = [...founderInput.SPECIFIC_BARRIERS];
-                        updated[idx] = e.target.value;
-                        updateFounderInput('SPECIFIC_BARRIERS', updated);
-                      }}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = founderInput.SPECIFIC_BARRIERS.filter((_, i) => i !== idx);
-                        updateFounderInput('SPECIFIC_BARRIERS', updated);
-                      }}
-                      className="text-gray-400 hover:text-red-500 px-2"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="flex justify-between">
@@ -1776,23 +1776,6 @@ function App() {
               onBack={() => setStep(WizardStep.FOUNDER_INPUT)}
             />
           </div>
-        )}
-
-        {/* STEP 3b: PROBLEM CHARACTERISTICS */}
-        {step === WizardStep.PROBLEM_CHARACTERISTICS && (
-          <ProblemCharacteristics
-            initialData={problemCharacteristicsData}
-            onChange={(data) => {
-              setProblemCharacteristicsData(data);
-              setProblemCharacteristicsRaw(null);
-            }}
-            onNext={(data) => {
-              setProblemCharacteristicsData(data);
-              setProblemCharacteristicsRaw(null);
-              setStep(WizardStep.TRANSCRIPT_UPLOAD);
-            }}
-            onBack={() => setStep(WizardStep.BASELINE_REVIEW)}
-          />
         )}
 
         {/* STEP 4: TRANSCRIPT UPLOAD & SPLIT */}
@@ -1854,7 +1837,7 @@ function App() {
                   data-tour-id="tour-transcript-editor"
                 />
                 <div className="flex justify-between">
-                  <button onClick={() => setStep(WizardStep.PROBLEM_CHARACTERISTICS)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.transcript.back}</button>
+                  <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.transcript.back}</button>
                   <button 
                     onClick={startSplit}
                     disabled={status === AppStatus.PROCESSING || !transcript || isTranscribingAudio}

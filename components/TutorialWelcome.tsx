@@ -21,16 +21,16 @@ const TutorialWelcome: React.FC<TutorialWelcomeProps> = ({ onStart, onSkip }) =>
         </h1>
         <p className="text-sm text-gray-600 mb-6 leading-relaxed">
           A structured interview tool for capturing how founders define the problem their startup solves.
-          The tutorial walks through the full workflow using a fictional demo company.
+          The tutorial walks through the full workflow using a real historical case.
         </p>
 
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
           <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-            Demo company
+            Demo case
           </div>
-          <div className="font-bold text-gray-900 text-lg mb-1">Relay</div>
+          <div className="font-bold text-gray-900 text-lg mb-1">Uber — 2010</div>
           <div className="text-sm text-gray-600 leading-snug">
-            AI scheduling copilot for home healthcare agencies — matching nurses to patients, automating same-day rescheduling.
+            On-demand black car app at launch. The LLM makes a cost-related inference the founder explicitly rejects — a clean example of a Hallucination row.
           </div>
         </div>
 
