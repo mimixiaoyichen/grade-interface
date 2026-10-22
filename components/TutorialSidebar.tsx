@@ -1,11 +1,26 @@
 import React, { useEffect } from 'react';
-import type { TutorialStep } from '../utils/tutorialData';
+import type { TutorialStep, TutorialCase } from '../utils/tutorialData';
 
 const LOADABLE_STEP_IDS = new Set([
   'tut-public-info', 'tut-baseline', 'tut-founder-input',
   'tut-baseline-review', 'tut-transcript', 'tut-split',
   'tut-split-confirm', 'tut-comparison'
 ]);
+
+const CASE_STYLE: Record<string, { tag: string; unloaded: string; loaded: string; dot: string }> = {
+  'case-a': {
+    tag: 'Clean',
+    unloaded: 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300',
+    loaded:   'text-emerald-700 bg-emerald-100 border-emerald-300',
+    dot:      'bg-emerald-400'
+  },
+  'case-b': {
+    tag: 'Messy',
+    unloaded: 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100 hover:border-amber-300',
+    loaded:   'text-amber-700 bg-amber-100 border-amber-300',
+    dot:      'bg-amber-400'
+  }
+};
 
 interface TutorialSidebarProps {
   open: boolean;
@@ -14,8 +29,9 @@ interface TutorialSidebarProps {
   onClose: () => void;
   onNext: () => void;
   onPrev: () => void;
-  onLoadStepData: (stepId: string) => void;
-  loadedStepIds: Set<string>;
+  onLoadStepData: (stepId: string, tutCase: TutorialCase) => void;
+  cases: TutorialCase[];
+  stepCaseLoaded: Record<string, string>;
   onReturnToDashboard: () => void;
 }
 
@@ -27,14 +43,15 @@ const TutorialSidebar: React.FC<TutorialSidebarProps> = ({
   onNext,
   onPrev,
   onLoadStepData,
-  loadedStepIds,
+  cases,
+  stepCaseLoaded,
   onReturnToDashboard
 }) => {
   const activeStep = steps[currentIndex];
   const isLast = currentIndex >= steps.length - 1;
   const progress = steps.length > 0 ? ((currentIndex + 1) / steps.length) * 100 : 0;
   const canLoad = activeStep ? LOADABLE_STEP_IDS.has(activeStep.id) : false;
-  const isLoaded = activeStep ? loadedStepIds.has(activeStep.id) : false;
+  const loadedCaseId = activeStep ? stepCaseLoaded[activeStep.id] : undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -91,27 +108,41 @@ const TutorialSidebar: React.FC<TutorialSidebarProps> = ({
           {activeStep.body}
         </p>
 
-        {/* Load example button */}
+        {/* Per-case load buttons */}
         {canLoad && (
-          <div className="pt-1">
-            {isLoaded ? (
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
-                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-                Example loaded
-              </div>
-            ) : (
-              <button
-                onClick={() => onLoadStepData(activeStep.id)}
-                className="w-full flex items-center justify-between gap-2 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5 hover:bg-purple-100 hover:border-purple-300 transition-colors group"
-              >
-                <span>Load example data</span>
-                <svg className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </button>
-            )}
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+              See an example
+            </div>
+            {cases.map((tutCase) => {
+              const style = CASE_STYLE[tutCase.id] ?? CASE_STYLE['case-a'];
+              const isLoaded = loadedCaseId === tutCase.id;
+              return (
+                <button
+                  key={tutCase.id}
+                  onClick={() => !isLoaded && onLoadStepData(activeStep.id, tutCase)}
+                  disabled={isLoaded}
+                  className={`w-full flex items-center gap-2.5 text-xs font-semibold border rounded-lg px-3 py-2.5 transition-colors ${isLoaded ? style.loaded + ' cursor-default' : style.unloaded}`}
+                >
+                  {isLoaded ? (
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${style.dot}`} />
+                  )}
+                  <span className="flex-1 text-left">
+                    {tutCase.companyName}
+                    <span className="ml-1.5 font-normal opacity-70">— {style.tag}</span>
+                  </span>
+                  {!isLoaded && (
+                    <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -147,7 +178,7 @@ const TutorialSidebar: React.FC<TutorialSidebarProps> = ({
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Return to examples
+          View example overview
         </button>
         <p className="text-[10px] text-gray-400 leading-relaxed">
           Demo data only — no API calls made

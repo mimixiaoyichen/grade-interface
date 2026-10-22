@@ -181,9 +181,9 @@ function App() {
   const [founderDataConsent, setFounderDataConsent] = useState<boolean>(false);
   const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
   const [tourStepIndex, setTourStepIndex] = useState<number>(0);
-  const [showDashboard, setShowDashboard] = useState<boolean>(true);
+  const [showDashboard, setShowDashboard] = useState<boolean>(false);
   const [activeTutorialCase, setActiveTutorialCase] = useState<TutorialCase | null>(null);
-  const [loadedStepIds, setLoadedStepIds] = useState<Set<string>>(new Set());
+  const [stepCaseLoaded, setStepCaseLoaded] = useState<Record<string, string>>({});
   const [publicInfoTrigger, setPublicInfoTrigger] = useState<number>(0);
   const [baselineReviewTrigger, setBaselineReviewTrigger] = useState<number>(0);
 
@@ -230,9 +230,14 @@ function App() {
     setIsConsentOpen(false);
   }, []);
 
-  const startTour = (tutCase: TutorialCase) => {
+  const startTour = (tutCase?: TutorialCase) => {
     if (isTourOpen) return;
-    tourSampleRef.current = tutCase;
+    if (tutCase) {
+      tourSampleRef.current = tutCase;
+      setActiveTutorialCase(tutCase);
+    } else {
+      tourSampleRef.current = null;
+    }
     tourSnapshotRef.current = {
       step,
       status,
@@ -269,7 +274,6 @@ function App() {
       speakerLabels,
       speakerMapping
     };
-    setActiveTutorialCase(tutCase);
     setIsTourOpen(true);
     setIsGuideOpen(false);
     setShowGuideGlow(false);
@@ -301,7 +305,7 @@ function App() {
     setTranscriptionStatus('');
     setIsTranscribingAudio(false);
     setIsConsentOpen(false);
-    setLoadedStepIds(new Set());
+    setStepCaseLoaded({});
     setPublicInfoTrigger(0);
     setBaselineReviewTrigger(0);
     setStep(WizardStep.PUBLIC_INFO);
@@ -369,10 +373,10 @@ function App() {
   useEffect(() => {
     if (!isTourOpen) return;
     const needsSplit = Boolean(tourSteps[tourStepIndex]?.requiresSplit);
-    if (!needsSplit && !loadedStepIds.has('tut-split')) {
+    if (!needsSplit && !stepCaseLoaded['tut-split']) {
       setSplitData(null);
     }
-  }, [isTourOpen, tourSteps, tourStepIndex, loadedStepIds]);
+  }, [isTourOpen, tourSteps, tourStepIndex, stepCaseLoaded]);
 
   // Tutorial animation: stream public info text when triggered via sidebar "Load example"
   useEffect(() => {
@@ -469,11 +473,11 @@ function App() {
     };
   }, [isTourOpen, baselineReviewTrigger]);
 
-  const handleLoadStepData = useCallback((stepId: string) => {
-    const sample = tourSampleRef.current;
-    if (!sample) return;
-
-    setLoadedStepIds(prev => new Set([...prev, stepId]));
+  const handleLoadStepData = useCallback((stepId: string, tutCase: TutorialCase) => {
+    tourSampleRef.current = tutCase;
+    setActiveTutorialCase(tutCase);
+    setStepCaseLoaded(prev => ({ ...prev, [stepId]: tutCase.id }));
+    const sample = tutCase;
 
     if (stepId === 'tut-public-info') {
       setPublicInfoTrigger(n => n + 1);
@@ -501,7 +505,7 @@ function App() {
       setBaselineGenerated(sample.baseline);
       setBaselineLLM(sample.baseline);
       setBaselineLLMRaw4o(sample.baseline);
-      setLoadedStepIds(prev => new Set([...prev, 'tut-baseline']));
+      setStepCaseLoaded(prev => ({ ...prev, 'tut-baseline': tutCase.id }));
       setBaselineReviewTrigger(n => n + 1);
     } else if (stepId === 'tut-transcript') {
       setTranscript(sample.transcript);
@@ -1484,8 +1488,9 @@ function App() {
           onNext={handleTourNext}
           onPrev={handleTourPrev}
           onLoadStepData={handleLoadStepData}
-          loadedStepIds={loadedStepIds}
-          onReturnToDashboard={() => { closeTour(); setShowDashboard(true); }}
+          cases={TUTORIAL_CASES}
+          stepCaseLoaded={stepCaseLoaded}
+          onReturnToDashboard={() => setShowDashboard(true)}
         />
         {showDashboard && (
           <CaseDashboard
@@ -1522,10 +1527,10 @@ function App() {
                 <h2 className="text-2xl font-bold mb-1">{t.publicInfo.title}</h2>
                 </div>
               <button
-                onClick={() => { if (isTourOpen) closeTour(); setShowDashboard(true); }}
+                onClick={() => isTourOpen ? closeTour() : startTour()}
                 className="text-xs font-semibold text-purple-700 border border-purple-200 px-3 py-2 rounded-lg hover:bg-purple-50 transition-colors"
               >
-                ← Return to examples
+                {isTourOpen ? '× Close tutorial' : 'Tutorial →'}
               </button>
             </div>
 
