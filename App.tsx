@@ -188,6 +188,11 @@ function App() {
   const [baselineReviewTrigger, setBaselineReviewTrigger] = useState<number>(0);
 
   useEffect(() => {
+    startTour();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
     if (!hasSeen) {
       setShowGuideGlow(true);
