@@ -1,6 +1,12 @@
 import React, { useEffect } from 'react';
 import type { TutorialStep } from '../utils/tutorialData';
 
+const LOADABLE_STEP_IDS = new Set([
+  'tut-public-info', 'tut-baseline', 'tut-founder-input',
+  'tut-baseline-review', 'tut-transcript', 'tut-split',
+  'tut-split-confirm', 'tut-comparison'
+]);
+
 interface TutorialSidebarProps {
   open: boolean;
   steps: TutorialStep[];
@@ -8,6 +14,9 @@ interface TutorialSidebarProps {
   onClose: () => void;
   onNext: () => void;
   onPrev: () => void;
+  onLoadStepData: (stepId: string) => void;
+  loadedStepIds: Set<string>;
+  onReturnToDashboard: () => void;
 }
 
 const TutorialSidebar: React.FC<TutorialSidebarProps> = ({
@@ -16,11 +25,16 @@ const TutorialSidebar: React.FC<TutorialSidebarProps> = ({
   currentIndex,
   onClose,
   onNext,
-  onPrev
+  onPrev,
+  onLoadStepData,
+  loadedStepIds,
+  onReturnToDashboard
 }) => {
   const activeStep = steps[currentIndex];
   const isLast = currentIndex >= steps.length - 1;
   const progress = steps.length > 0 ? ((currentIndex + 1) / steps.length) * 100 : 0;
+  const canLoad = activeStep ? LOADABLE_STEP_IDS.has(activeStep.id) : false;
+  const isLoaded = activeStep ? loadedStepIds.has(activeStep.id) : false;
 
   useEffect(() => {
     if (!open) return;
@@ -77,6 +91,30 @@ const TutorialSidebar: React.FC<TutorialSidebarProps> = ({
           {activeStep.body}
         </p>
 
+        {/* Load example button */}
+        {canLoad && (
+          <div className="pt-1">
+            {isLoaded ? (
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                Example loaded
+              </div>
+            ) : (
+              <button
+                onClick={() => onLoadStepData(activeStep.id)}
+                className="w-full flex items-center justify-between gap-2 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5 hover:bg-purple-100 hover:border-purple-300 transition-colors group"
+              >
+                <span>Load example data</span>
+                <svg className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+
         {activeStep.lookFor && (
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-3.5">
             <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1.5">
@@ -100,9 +138,18 @@ const TutorialSidebar: React.FC<TutorialSidebarProps> = ({
         )}
       </div>
 
-      {/* Demo note */}
-      <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 shrink-0">
-        <p className="text-[10px] text-gray-400 text-center leading-relaxed">
+      {/* Footer */}
+      <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 shrink-0 space-y-2">
+        <button
+          onClick={onReturnToDashboard}
+          className="w-full text-left text-xs font-semibold text-gray-400 hover:text-purple-700 transition-colors flex items-center gap-1.5"
+        >
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Return to examples
+        </button>
+        <p className="text-[10px] text-gray-400 leading-relaxed">
           Demo data only — no API calls made
         </p>
       </div>

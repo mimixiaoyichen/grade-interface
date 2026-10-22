@@ -183,6 +183,9 @@ function App() {
   const [tourStepIndex, setTourStepIndex] = useState<number>(0);
   const [showDashboard, setShowDashboard] = useState<boolean>(true);
   const [activeTutorialCase, setActiveTutorialCase] = useState<TutorialCase | null>(null);
+  const [loadedStepIds, setLoadedStepIds] = useState<Set<string>>(new Set());
+  const [publicInfoTrigger, setPublicInfoTrigger] = useState<number>(0);
+  const [baselineReviewTrigger, setBaselineReviewTrigger] = useState<number>(0);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -270,7 +273,37 @@ function App() {
     setIsTourOpen(true);
     setIsGuideOpen(false);
     setShowGuideGlow(false);
-    applyTourData();
+    // Reset to empty — data loads on-demand via sidebar "Load example" buttons
+    setStatus(AppStatus.IDLE);
+    setErrorMsg('');
+    setCompanyUrl('');
+    setPitchbookInfo('');
+    setPublicInfo('');
+    setHasFetchedPublicInfo(false);
+    setBaselineStatement(null);
+    setBaselineReviewFieldOrder(createShuffledBaselineReviewFieldOrder());
+    setBaselineGenerated(null);
+    setBaselineLLM(null);
+    setBaselineLLMRaw4o(null);
+    setBaselineGpt52Layer(null);
+    setFounderInput(INITIAL_STATEMENT);
+    setTranscript('');
+    setDiarizedPreview('');
+    setSplitData(null);
+    setPart1Result(null);
+    setComparisonRows([]);
+    setSupportByRow({});
+    setComponentEvidence(null);
+    setPart2Notes('');
+    setShowSpeakerModal(false);
+    setSpeakerLabels([]);
+    setSpeakerMapping({});
+    setTranscriptionStatus('');
+    setIsTranscribingAudio(false);
+    setIsConsentOpen(false);
+    setLoadedStepIds(new Set());
+    setPublicInfoTrigger(0);
+    setBaselineReviewTrigger(0);
     setStep(WizardStep.PUBLIC_INFO);
     setTourStepIndex(0);
   };
@@ -334,28 +367,16 @@ function App() {
   }, [isTourOpen, tourSteps, tourStepIndex]);
 
   useEffect(() => {
-    if (isTourOpen) {
-      applyTourData();
-    }
-  }, [applyTourData, isTourOpen]);
-
-  useEffect(() => {
     if (!isTourOpen) return;
     const needsSplit = Boolean(tourSteps[tourStepIndex]?.requiresSplit);
-    if (needsSplit) {
-      const sampleSplit = tourSampleRef.current?.splitData;
-      if (sampleSplit) {
-        setSplitData(sampleSplit);
-      }
-    } else {
+    if (!needsSplit && !loadedStepIds.has('tut-split')) {
       setSplitData(null);
     }
-  }, [isTourOpen, tourSteps, tourStepIndex]);
+  }, [isTourOpen, tourSteps, tourStepIndex, loadedStepIds]);
 
-  // Tutorial animation: stream public info text when on tut-public-info step
+  // Tutorial animation: stream public info text when triggered via sidebar "Load example"
   useEffect(() => {
-    if (!isTourOpen) return;
-    if (tourSteps[tourStepIndex]?.id !== 'tut-public-info') return;
+    if (!isTourOpen || publicInfoTrigger === 0) return;
 
     setPublicInfo('');
     setHasFetchedPublicInfo(false);
@@ -376,12 +397,11 @@ function App() {
       clearTimeout(fetchDelay);
       if (streamInterval) clearInterval(streamInterval);
     };
-  }, [isTourOpen, tourStepIndex, tourSteps]);
+  }, [isTourOpen, publicInfoTrigger]);
 
-  // Tutorial animation: animate founder edits on tut-baseline-review step
+  // Tutorial animation: animate founder edits when triggered via sidebar "Load example"
   useEffect(() => {
-    if (!isTourOpen) return;
-    if (tourSteps[tourStepIndex]?.id !== 'tut-baseline-review') return;
+    if (!isTourOpen || baselineReviewTrigger === 0) return;
 
     const currentCase = tourSampleRef.current;
     if (!currentCase) return;
@@ -447,7 +467,56 @@ function App() {
       if (deleteInterval2) clearInterval(deleteInterval2);
       if (typeInterval2) clearInterval(typeInterval2);
     };
-  }, [isTourOpen, tourStepIndex, tourSteps]);
+  }, [isTourOpen, baselineReviewTrigger]);
+
+  const handleLoadStepData = useCallback((stepId: string) => {
+    const sample = tourSampleRef.current;
+    if (!sample) return;
+
+    setLoadedStepIds(prev => new Set([...prev, stepId]));
+
+    if (stepId === 'tut-public-info') {
+      setPublicInfoTrigger(n => n + 1);
+    } else if (stepId === 'tut-baseline') {
+      const combinedSource = [sample.pitchbookInfo, sample.publicInfo].filter(Boolean).join('\n\n').trim();
+      setBaselineSource(combinedSource);
+      setHasFetchedPublicInfo(true);
+      setPublicInfo(sample.publicInfo);
+      setBaselineStatement(sample.baseline);
+      setBaselineGenerated(sample.baseline);
+      setBaselineLLM(sample.baseline);
+      setBaselineLLMRaw4o(sample.baseline);
+      setBaselineGpt52Layer(null);
+      setCompanyUrl(sample.companyUrl);
+      setPitchbookInfo(sample.pitchbookInfo);
+    } else if (stepId === 'tut-founder-input') {
+      setFounderInput(sample.founderInput);
+      setCompanyUrl(sample.companyUrl);
+      setPitchbookInfo(sample.pitchbookInfo);
+    } else if (stepId === 'tut-baseline-review') {
+      const combinedSource = [sample.pitchbookInfo, sample.publicInfo].filter(Boolean).join('\n\n').trim();
+      setBaselineSource(combinedSource);
+      setHasFetchedPublicInfo(true);
+      setPublicInfo(sample.publicInfo);
+      setBaselineGenerated(sample.baseline);
+      setBaselineLLM(sample.baseline);
+      setBaselineLLMRaw4o(sample.baseline);
+      setLoadedStepIds(prev => new Set([...prev, 'tut-baseline']));
+      setBaselineReviewTrigger(n => n + 1);
+    } else if (stepId === 'tut-transcript') {
+      setTranscript(sample.transcript);
+      setDiarizedPreview(sample.transcript);
+    } else if (stepId === 'tut-split' || stepId === 'tut-split-confirm') {
+      setSplitData(sample.splitData ?? null);
+      if (sample.part1Result) setPart1Result(sample.part1Result);
+    } else if (stepId === 'tut-comparison') {
+      setComparisonRows(sample.comparisonRows);
+      setSupportByRow(buildSupportState(sample.comparisonRows));
+      setComponentEvidence(sample.componentEvidence);
+      setPart2Notes(sample.part2Notes ?? '');
+      if (sample.part1Result) setPart1Result(sample.part1Result);
+    }
+  }, []);
 
   // --- Logic & Handlers ---
 
@@ -1414,6 +1483,9 @@ function App() {
           onClose={closeTour}
           onNext={handleTourNext}
           onPrev={handleTourPrev}
+          onLoadStepData={handleLoadStepData}
+          loadedStepIds={loadedStepIds}
+          onReturnToDashboard={() => { closeTour(); setShowDashboard(true); }}
         />
         {showDashboard && (
           <CaseDashboard
@@ -1450,11 +1522,10 @@ function App() {
                 <h2 className="text-2xl font-bold mb-1">{t.publicInfo.title}</h2>
                 </div>
               <button
-                onClick={() => setShowWelcomeModal(true)}
-                disabled={isTourOpen}
-                className="text-xs font-semibold text-purple-700 border border-purple-200 px-3 py-2 rounded-lg hover:bg-purple-50 disabled:opacity-50"
+                onClick={() => { if (isTourOpen) closeTour(); setShowDashboard(true); }}
+                className="text-xs font-semibold text-purple-700 border border-purple-200 px-3 py-2 rounded-lg hover:bg-purple-50 transition-colors"
               >
-                {t.tour.start}
+                ← Return to examples
               </button>
             </div>
 
