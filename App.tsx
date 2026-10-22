@@ -34,19 +34,10 @@ import SpeakerModal from './components/SpeakerModal';
 import Part2Comparison from './components/Part2Comparison';
 import ConsentModal from './components/ConsentModal';
 import TutorialSidebar from './components/TutorialSidebar';
-import TutorialWelcome from './components/TutorialWelcome';
+import CaseDashboard from './components/CaseDashboard';
 import {
-  TUTORIAL_STEPS,
-  TUTORIAL_COMPANY_URL,
-  TUTORIAL_PITCHBOOK,
-  TUTORIAL_PUBLIC_INFO as TUTORIAL_PUBLIC_INFO_TEXT,
-  TUTORIAL_BASELINE,
-  TUTORIAL_FOUNDER_INPUT as TUTORIAL_FOUNDER_INPUT_DATA,
-  TUTORIAL_TRANSCRIPT,
-  TUTORIAL_SPLIT,
-  TUTORIAL_PART1_RESULT,
-  TUTORIAL_COMPARISON_ROWS,
-  TUTORIAL_COMPONENT_EVIDENCE,
+  TUTORIAL_CASES,
+  type TutorialCase,
   type TutorialStep
 } from './utils/tutorialData';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
@@ -100,47 +91,7 @@ const stripIndent = (text: string) =>
     .replace(/\n[ \t]+/g, '\n')
     .trim();
 
-type TourSample = {
-  companyUrl: string;
-  pitchbookInfo: string;
-  publicInfo: string;
-  baseline: BaselineStatement;
-  founderInput: BaselineStatement;
-  transcript: string;
-  splitData?: TranscriptSplit;
-  part1Result?: StatementResult;
-  comparisonRows: ComparisonRow[];
-  componentEvidence: ComponentEvidence;
-  part2Notes?: string;
-};
-
-const TOUR_SAMPLE_CONTENT: Record<LocaleKey, TourSample> = {
-  en: {
-    companyUrl: TUTORIAL_COMPANY_URL,
-    pitchbookInfo: TUTORIAL_PITCHBOOK,
-    publicInfo: TUTORIAL_PUBLIC_INFO_TEXT,
-    baseline: TUTORIAL_BASELINE,
-    founderInput: TUTORIAL_FOUNDER_INPUT_DATA,
-    transcript: TUTORIAL_TRANSCRIPT,
-    splitData: TUTORIAL_SPLIT,
-    part1Result: TUTORIAL_PART1_RESULT,
-    comparisonRows: TUTORIAL_COMPARISON_ROWS,
-    componentEvidence: TUTORIAL_COMPONENT_EVIDENCE,
-    part2Notes: "Demo: notice the Barrier row — the LLM described a compliance concern the founder explicitly said they've never stated publicly."
-  },
-  zh: {
-    companyUrl: TUTORIAL_COMPANY_URL,
-    pitchbookInfo: TUTORIAL_PITCHBOOK,
-    publicInfo: TUTORIAL_PUBLIC_INFO_TEXT,
-    baseline: TUTORIAL_BASELINE,
-    founderInput: TUTORIAL_FOUNDER_INPUT_DATA,
-    transcript: TUTORIAL_TRANSCRIPT,
-    splitData: TUTORIAL_SPLIT,
-    part1Result: TUTORIAL_PART1_RESULT,
-    comparisonRows: TUTORIAL_COMPARISON_ROWS,
-    componentEvidence: TUTORIAL_COMPONENT_EVIDENCE,
-  }
-};
+type TourSample = TutorialCase;
 
 export const ScriptDropdown = ({ title, children }) => {
   const { common } = useT();
@@ -230,7 +181,8 @@ function App() {
   const [founderDataConsent, setFounderDataConsent] = useState<boolean>(false);
   const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
   const [tourStepIndex, setTourStepIndex] = useState<number>(0);
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(false);
+  const [showDashboard, setShowDashboard] = useState<boolean>(true);
+  const [activeTutorialCase, setActiveTutorialCase] = useState<TutorialCase | null>(null);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('guide_seen');
@@ -239,16 +191,12 @@ function App() {
     }
   }, []);
 
-  useEffect(() => {
-    setShowWelcomeModal(true);
-  }, []);
-
-  const tourSteps: TutorialStep[] = TUTORIAL_STEPS;
+  const tourSteps: TutorialStep[] = activeTutorialCase?.steps ?? TUTORIAL_CASES[0].steps;
 
   const applyTourData = useCallback(() => {
-    const sample = TOUR_SAMPLE_CONTENT.en;
+    const sample = tourSampleRef.current;
+    if (!sample) return;
     const combinedSource = [sample.pitchbookInfo, sample.publicInfo].filter(Boolean).join('\n\n').trim();
-    tourSampleRef.current = sample;
     setStatus(AppStatus.IDLE);
     setErrorMsg('');
     setCompanyUrl(sample.companyUrl);
@@ -279,8 +227,9 @@ function App() {
     setIsConsentOpen(false);
   }, []);
 
-  const startTour = () => {
+  const startTour = (tutCase: TutorialCase) => {
     if (isTourOpen) return;
+    tourSampleRef.current = tutCase;
     tourSnapshotRef.current = {
       step,
       status,
@@ -317,6 +266,7 @@ function App() {
       speakerLabels,
       speakerMapping
     };
+    setActiveTutorialCase(tutCase);
     setIsTourOpen(true);
     setIsGuideOpen(false);
     setShowGuideGlow(false);
@@ -413,7 +363,7 @@ function App() {
     let streamInterval: ReturnType<typeof setInterval> | null = null;
     const fetchDelay = setTimeout(() => {
       setHasFetchedPublicInfo(true);
-      const fullText = TUTORIAL_PUBLIC_INFO_TEXT;
+      const fullText = tourSampleRef.current?.publicInfo ?? '';
       let charIdx = 0;
       streamInterval = setInterval(() => {
         charIdx = Math.min(charIdx + 6, fullText.length);
@@ -433,13 +383,16 @@ function App() {
     if (!isTourOpen) return;
     if (tourSteps[tourStepIndex]?.id !== 'tut-baseline-review') return;
 
-    // Start from LLM baseline so reviewers see the "before" state
-    setBaselineStatement({ ...TUTORIAL_BASELINE });
+    const currentCase = tourSampleRef.current;
+    if (!currentCase) return;
 
-    const llmCustomer = TUTORIAL_BASELINE.CUSTOMER_SEGMENT;
-    const founderCustomer = TUTORIAL_FOUNDER_INPUT_DATA.CUSTOMER_SEGMENT;
-    const llmContext = TUTORIAL_BASELINE.LIFE_BUSINESS_CONTEXT;
-    const founderContext = TUTORIAL_FOUNDER_INPUT_DATA.LIFE_BUSINESS_CONTEXT;
+    // Start from LLM baseline so reviewers see the "before" state
+    setBaselineStatement({ ...currentCase.baseline });
+
+    const llmCustomer = currentCase.baseline.CUSTOMER_SEGMENT;
+    const founderCustomer = currentCase.founderInput.CUSTOMER_SEGMENT;
+    const llmContext = currentCase.baseline.LIFE_BUSINESS_CONTEXT;
+    const founderContext = currentCase.founderInput.LIFE_BUSINESS_CONTEXT;
 
     let t1: ReturnType<typeof setTimeout>;
     let deleteInterval: ReturnType<typeof setInterval> | null = null;
@@ -1462,13 +1415,14 @@ function App() {
           onNext={handleTourNext}
           onPrev={handleTourPrev}
         />
-        {showWelcomeModal && (
-          <TutorialWelcome
-            onStart={() => {
-              setShowWelcomeModal(false);
-              startTour();
+        {showDashboard && (
+          <CaseDashboard
+            cases={TUTORIAL_CASES}
+            onSelectCase={(tutCase) => {
+              setShowDashboard(false);
+              startTour(tutCase);
             }}
-            onSkip={() => setShowWelcomeModal(false)}
+            onSkip={() => setShowDashboard(false)}
           />
         )}
         <div data-tour-id="tour-step-indicator">
