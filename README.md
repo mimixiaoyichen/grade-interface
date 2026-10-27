@@ -51,9 +51,6 @@ For modified components, cosine similarity between LLM extraction and founder-re
 
 Per-interview retrieval and extraction cost approximately $0.08–$0.15 at current API pricing. Pre-interview pipeline time is 30–90 seconds per company; interview sessions average 28 minutes.
 
-This work is reported in:
-
-> Bernstein, S., Chen, M., Lane, J. N., & Ma, Z. (2026). *Beyond a technology lens: Characterizing the problems entrepreneurs solve.* Harvard Business School Working Paper 27-016. [SSRN](https://ssrn.com/abstract=7339099)
 
 ---
 
