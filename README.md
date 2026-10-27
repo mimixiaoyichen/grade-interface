@@ -225,20 +225,6 @@ An interactive walkthrough using synthetic examples and no live API calls is ava
 
 We aim to release numerical replication data permitted under participant consent and applicable data agreements, alongside reproducible analysis scripts and labeled synthetic sessions. See Section A.7 of the working paper for the planned release scope.
 
----
-
-## Citation
-
-```bibtex
-@techreport{bernstein2026grade,
-  title     = {Beyond a Technology Lens: Characterizing the Problems Entrepreneurs Solve},
-  author    = {Bernstein, Shai and Chen, Mimi and Lane, Jacqueline N. and Ma, Zilin},
-  year      = {2026},
-  institution = {Harvard Business School},
-  number    = {27-016},
-  url       = {https://ssrn.com/abstract=7339099}
-}
-```
 
 ---
 
