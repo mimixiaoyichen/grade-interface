@@ -3,7 +3,7 @@ import React from 'react';
 export const translations = {
   en: {
     common: {
-      appTitle: 'Founder Problem Analyst',
+      appTitle: 'GRADE',
       guide: 'Guide',
       beta: 'BETA',
       loadJson: 'Load JSON',
@@ -23,12 +23,11 @@ export const translations = {
       languageZh: '中文'
     },
     steps: {
-      publicInfo: 'Public Info',
-      founderInput: 'Founder Input',
-      baselineReview: 'Review Baseline',
-      transcriptUpload: 'Post-interview',
-      problemCharacteristics: 'Problem Characteristics',
-      part2Comparison: 'Feedback'
+      publicInfo: 'Retrieve',
+      founderInput: 'Blind Elicitation',
+      baselineReview: 'Reveal and Correct',
+      transcriptUpload: 'Post-Interview',
+      part2Comparison: 'Validate'
     },
     errors: {
       resetConfirm: 'Are you sure you want to clear all data and start over?',
@@ -36,7 +35,7 @@ export const translations = {
       publicInfoRequired: 'Public information is required.',
       fetchPublicInfoFirst: 'Please fetch public information first.',
       founderInputMissing: 'Please provide at least a Solution and Customer Segment.',
-      baselineRequired: 'Baseline statement is required before analyzing the transcript.',
+      baselineRequired: 'Candidate profile is required before analyzing the transcript.',
       transcriptRequired: 'Transcript required.',
       publicSupportInfoMissing: 'Public information is required before checking public support.',
       noSupportItems: 'No omissions or hallucinations provided to check.',
@@ -51,15 +50,15 @@ export const translations = {
       transcriptionDone: 'Transcription complete. Review or edit below before splitting.',
       transcriptionErrorPrefix: 'Transcription error:',
       processing: 'Processing...',
-      analyzingPublicInfo: 'Analyzing Public Info...',
-      regenerateBaseline: 'Regenerate Baseline',
-      generateBaseline: 'Generate Baseline →'
+      analyzingPublicInfo: 'Constructing Candidate Profile...',
+      regenerateBaseline: 'Regenerate Candidate Profile',
+      generateBaseline: 'Construct Candidate Profile →'
     },
     publicInfo: {
-      title: '1. Public Information',
+      title: '1. Retrieve',
       pitchbookLabel: 'Pitchbook Information',
       pitchbookPlaceholder: 'Copy and paste pitchbook information if available...',
-      pitchbookHint: 'This will be combined with fetched public info when generating the baseline.',
+      pitchbookHint: 'This will be combined with fetched public info when constructing the candidate profile.',
       optionA: {
         title: 'Option A: Fetch from URL',
         description: 'We will use Google Search to find and summarize public info about this company. We also attempt to fetch the raw homepage HTML.',
@@ -73,13 +72,13 @@ export const translations = {
       contentLabel: 'Public Information Content',
       contentPlaceholder: 'Content will appear here after fetch or upload...',
       buttons: {
-        continue: 'Continue to Founder Input →',
-        analyze: 'Analyzing Public Info...',
-        regenerate: 'Regenerate Baseline',
-        generate: 'Generate Baseline →'
+        continue: 'Continue to Blind Elicitation →',
+        analyze: 'Constructing Candidate Profile...',
+        regenerate: 'Regenerate Candidate Profile',
+        generate: 'Construct Candidate Profile →'
       },
       preview: {
-        title: 'LLM-generated Statement (Preview)',
+        title: 'Candidate Profile (Preview)',
         solution: 'Solution',
         customer: 'Customer',
         context: 'Context',
@@ -89,8 +88,8 @@ export const translations = {
       }
     },
     founder: {
-      title: "2. Founder's Perspective (!!RECORD ZOOM TO COMPUTER!!)",
-      subtitle: 'What does the founder think the problem is?',
+      title: "2. Blind Elicitation",
+      subtitle: "Capture the founder\'s unprompted perspective on the problem.",
       consent: 'Consent',
       labels: {
         introduction: 'Introduction',
@@ -112,34 +111,34 @@ export const translations = {
       continue: 'Continue →',
       scripts: {
         introduction: `Overview:
-“Hi [Name], thank you for joining today. I’m [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We’re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. Do you have any questions before we begin?
+“Hi [Name], thank you for joining today. I'm [Your Name], working with Professors Bernstein and Lane at Harvard Business School. We\'re studying how founders define the core problem their startup solves. This interview is for research only—we are not evaluating your company. Your responses will remain confidential and only aggregate findings will be shared. Do you have any questions before we begin?
 
-With your permission, I’d like to record the conversation so that we can capture your responses accurately. Is that okay?”
+With your permission, I'd like to record the conversation so that we can capture your responses accurately. Is that okay?”
 
 If yes, begin recording. If no, interviewer is expected to take detailed notes.
 
 Then set expectations:
-“I’ll ask a series of open‑ended questions. There are no right or wrong answers—we want to understand your perspective in your own words. This will take about 20 minutes.”
+“I'll ask a series of open‑ended questions. There are no right or wrong answers—we want to understand your perspective in your own words. This will take about 20 minutes.”
 
 Briefly describe the problem statement framework using the following scripted introduction (read verbatim):
 
-“Before we dive into the specific questions, I want to quickly explain the structure we’ll use. We follow a simple framework to construct a problem statement of your company. Our goal is to understand the problem your company solves from the customer’s point of view.
+“Before we dive into the specific questions, I want to quickly explain the structure we\'ll use. We follow a simple framework to construct a problem statement of your company. Our goal is to understand the problem your company solves from the customer\'s point of view.
 
-We’ll walk through five elements: The solution you've built, who your customers are, your customer's goals and aspirations, the context in which the problem arises, and the barriers that prevent your customers from achieving their goals without your help. 
+We\'ll walk through five elements: The solution you\'ve built, who your customers are, your customer\'s goals and aspirations, the context in which the problem arises, and the barriers that prevent your customers from achieving their goals without your help. 
 
 In the second part of this interview, we would like to show you a problem statement, similar to what we will generate together, that was developed by a Large Language Model for your company based on public information. We will ask for your feedback on this statement and how you would revise it based on your perspective as the founder.
 
 Lastly, we will ask you some questions about the characteristics of the problem your startup solves, these questions are not meant to be evaluative in any way—they are just to help us categorize the nature of the problems founders tackle.
 
-For this conversation, please respond based on the public’s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.
+For this conversation, please respond based on the public\'s understanding of your startup, and not based on private information that may not be reflected in the public knowledge domain.
 
 (Ask founder if they have any questions before proceeding)
-Do you have any questions about the process? Great, let’s get started"
+Do you have any questions about the process? Great, let\'s get started"
 `,
         solution: `Lead Question (read verbatim):
-“Let’s begin with what you’ve built. How would you describe your product or solution?”
+“Let\'s begin with what you\'ve built. How would you describe your product or solution?”
       
-Smooth Transition: “Thank you—that helps set the stage. Now let’s move on to the next variable. I’d like to understand who your customers are.”
+Smooth Transition: “Thank you—that helps set the stage. Now let\'s move on to the next variable. I'd like to understand who your customers are.”
  `,
         customer: `Lead Question (verbatim): “Tell me about the people or organizations that face the problem you are trying to solve. Who are they?”  
 
@@ -148,9 +147,9 @@ Probing (if needed):
 - “Who is your primary customer today versus aspirational customers?”
 - “What do these customers have in common?”  
       
-Reflective statement before transition: “So you’re saying your core customer is ___. Did I summarize that accurately?  
+Reflective statement before transition: “So you\'re saying your core customer is ___. Did I summarize that accurately?  
 [founder confirms OR offers more revisions] 
-Now let’s move on to the next variable.”  `,
+Now let\'s move on to the next variable.”  `,
         context: `Lead Question (verbatim): “When does this problem occur for your customers? Can you describe the specific situation or moment when they face this challenge?”  
         
 Probing:  
@@ -159,37 +158,37 @@ Probing:
         
 Reflective statement before transition:  “So the problem typically arises when ___. Did I capture that accurately? 
 [founder confirms OR offers more revisions] 
-Now let’s move on to the next variable.”`,
-        goal: `Lead Question (verbatim): “What are your customers ultimately trying to achieve when they come to you? To be clear, I’m asking about the progress or goals they’re seeking—not what your product does. Please describe this using only publicly available information about your startup.”  
+Now let\'s move on to the next variable.”`,
+        goal: `Lead Question (verbatim): “What are your customers ultimately trying to achieve when they come to you? To be clear, I'm asking about the progress or goals they\'re seeking—not what your product does. Please describe this using only publicly available information about your startup.”  
 
 Important framing: Ask the founder to answer as the public would understand the startup, based on public external information.  
 
 Probing:  
-- “If your product didn’t exist, what would they still be trying to achieve?”  
+- “If your product didn\'t exist, what would they still be trying to achieve?”  
 - “What does success look like from their perspective?”  
       
-Reflective statement before transition: “What I’m hearing is that their aspiration is ___. Is that correct? 
+Reflective statement before transition: “What I'm hearing is that their aspiration is ___. Is that correct? 
 [founder confirms OR offers more revisions] 
-Now let’s move on to the next variable.”`,
-        barriers: `Lead Question (verbatim): “What prevents your customers from achieving their aspirations or goals if your solution doesn’t exist? What specific obstacles stand in their way?”  
+Now let\'s move on to the next variable.”`,
+        barriers: `Lead Question (verbatim): “What prevents your customers from achieving their aspirations or goals if your solution doesn\'t exist? What specific obstacles stand in their way?”  
 
 Probing:
 - “Are these functional, emotional, financial, or social barriers?”
-- “What have they tried that didn’t work?”
+- “What have they tried that didn\'t work?”
 
 Reflective statement before transition:  “You mentioned ___ as the main barriers. Does that fully capture them?[founder confirms OR offers more revisions] 
 
-Now let’s move on to the next variable.”  
+Now let\'s move on to the next variable.”  
 Transitory wording between part 1 & part 2: 
-“Awesome - now we have finished part 1 where you created your problem statement. Let’s proceed to the next part.”  
+“Awesome - now we have finished part 1 where you created your problem statement. Let\'s proceed to the next part.”  
 `
       }
     },
     baselineReview: {
-      title: '3. Review LLM-Generated Statement',
-      description: 'This statement was generated from Public Information. Review and edit it before comparing it to the transcript.',
+      title: '3. Reveal & Correct',
+      description: 'Present the candidate profile to the subject. Capture their corrections to each component before comparing to the transcript.',
       draft: 'Draft Mode',
-      script: `Moving on to the next part of this interview, we’d like your reaction to a few components of the problem statement, similar to the one we just generated together, developed for your startup by an LLM using public information. Please evaluate how accurately the LLM generated problem statement is relative to publicly available information and how you would change the statement.`,
+      script: `Moving on to the next part of this interview, we\'d like your reaction to a few components of the problem statement, similar to the one we just generated together, developed for your startup by an LLM using public information. Please evaluate how accurately the LLM generated problem statement is relative to publicly available information and how you would change the statement.`,
       labels: {
         solution: 'Solution',
         customer: 'Customer Segment',
@@ -200,63 +199,6 @@ Transitory wording between part 1 & part 2:
       addBarrier: '+ Add Barrier',
       back: 'Back',
       confirm: 'Continue →'
-    },
-    problemCharacteristics: {
-      title: '4. Characterizing the Problem',
-      description: "Now that you've written your problem statement, we'd like to understand more about the nature of the problem your startup addresses. The following questions focus on different aspects of your customers' problems.",
-      questions: {
-        informationIntensity: {
-          title: 'Information Intensity',
-          prompt: 'When customers face this problem, how much information do they need to bring together to handle it well?',
-          options: [
-            'Low – A few clear factors matter; most people can reason through it on their own',
-            'High – Many interacting factors; easy to make mistakes without deeper knowledge'
-          ]
-        },
-        frequency: {
-          title: 'Frequency',
-          prompt: 'How often does this problem show up in your customers’ lives or work?',
-          options: [
-            'Sporadic – Occurs irregularly, based on specific needs or situations; not on a predictable schedule',
-            'Recurring – Occurs regularly, continuously, or on a predictable cadence (e.g., daily, weekly, monthly)'
-          ]
-        },
-        stakes: {
-          title: 'Stakes',
-          prompt: 'If this problem is handled poorly, what’s really at risk for the customer?',
-          options: [
-            'Low – Mostly inconvenience or small losses; easy to recover',
-            'High – Meaningful consequences for finances, health, safety, or long-term outcomes'
-          ]
-        },
-        expertDependency: {
-          title: 'Expert Dependency',
-          prompt: 'Before your solution existed, could customers realistically handle this on their own, or did they need an expert involved?',
-          options: [
-            'Self-serve – Customers can handle it on their own with basic tools or knowledge',
-            'Expert-present – An expert is typically involved to get a good or safe outcome'
-          ]
-        },
-        needsFulfilled: {
-          title: 'Needs Fulfilled',
-          prompt: 'Which of these describe what your customers are ultimately seeking when they use your product/solution?',
-          options: [
-            'Knowledge',
-            'Material Goods',
-            'Service',
-            'Experience',
-            'Efficiency'
-          ]
-        },
-        problemDiscovery: {
-          title: 'Problem Discovery',
-          prompt: 'Can you tell us about how you discovered the problem you are now solving for your customers?'
-        }
-      },
-      buttons: {
-        back: 'Back',
-        continue: 'Continue →'
-      }
     },
     transcript: {
       title: '4. Post-interview (Upload Transcript)',
@@ -275,10 +217,10 @@ Transitory wording between part 1 & part 2:
     },
     splitVerifier: {
       title: 'Verify Transcript Split',
-      description: 'The AI has attempted to split the transcript into the Discovery phase and the Feedback phase. Please ensure Part 1 ends where the interviewer starts presenting their summary.',
+      description: 'The AI has attempted to split the transcript into the Blind Elicitation phase and the Reveal & Correct phase. Please ensure Part 1 ends where the interviewer starts presenting the candidate profile.',
       reasoning: 'AI Reasoning:',
-      part1: 'Part 1: Discovery (Raw Statements)',
-      part2: 'Part 2: Feedback (Corrections)',
+      part1: 'Part 1: Blind Elicitation',
+      part2: 'Part 2: Reveal and Correct',
       back: 'Back',
       cancel: 'Cancel / Re-upload',
       analyzing: 'Analyzing...',
@@ -286,8 +228,8 @@ Transitory wording between part 1 & part 2:
       userProvidedReasoning: 'User-provided split'
     },
     part2: {
-      title: 'Part 2 Results: Feedback & Comparison',
-      description: "Comparing Baseline (Public Info) vs. Founder's Transcript Feedback.",
+      title: '5. Validate',
+      description: "Comparing candidate profile (Retrieve) vs. subject\'s corrections (Reveal & Correct).",
       back: 'Back',
       loadJson: 'Load JSON',
       downloadJson: 'Download JSON'
@@ -307,7 +249,7 @@ Transitory wording between part 1 & part 2:
         Confirmation: 'Confirmation'
       },
       labels: {
-        llmGenerated: 'LLM-Generated',
+        llmGenerated: 'Candidate Profile',
         evidence: 'Evidence (Transcript)',
         noEvidence: 'No transcript evidence',
         omissionsHallucinations: 'Omissions & Hallucinations',
@@ -372,7 +314,7 @@ Transitory wording between part 1 & part 2:
           bullets: [
             'We will ask you a series of open-ended questions about your company and the customer problem your startup is trying to solve.',
             'These questions focus only on information about your company that is publicly available.',
-            "We will also show you a short, AI-generated description of your startup's problem based on public information, and we will ask for your thoughts on how accurate it is.",
+            "We will also show you a short, AI-generated description of your startup\'s problem based on public information, and we will ask for your thoughts on how accurate it is.",
             'You may skip any questions that you prefer not to answer.'
           ]
         },
@@ -387,7 +329,7 @@ Transitory wording between part 1 & part 2:
         {
           title: 'Length of participation',
           paragraphs: [
-            "The entire session will take 25-30 minutes, and we will not contact you again after the interview unless you indicate that you wish to receive a summary of the study's findings in the future."
+            "The entire session will take 25-30 minutes, and we will not contact you again after the interview unless you indicate that you wish to receive a summary of the study\'s findings in the future."
           ]
         },
         {
@@ -420,7 +362,7 @@ Transitory wording between part 1 & part 2:
         paragraphs: [
           'This Addendum concerns requirements for data which is subject to various non-U.S. privacy laws. If you are participating in this study in a country other than the United States ("your country"), your country may have a law with certain requirements for processing personal data relating to identified or identifiable individuals located in your country that applies to entities outside of your country, including entities in the U.S. This Addendum will refer to each of those laws as the "Law."',
           'Harvard researchers, led by PI: Jackie Lane and Shai Bernstein (the "study team") will collect information about you during the course of the study. This form calls such information your "Personal Information" and it will generally include your name, basic contact information, demographic information, and your responses to any tests, surveys or interviews described in this informed consent form.',
-          'Harvard is the [co-]controller of your Personal Information collected for this study. By agreeing to this Addendum, you consent to the study team’s use and processing of your Personal Information for the purpose of this study. The study team, and those working with the study team, will process your Personal Information in compliance with applicable Law.',
+          'Harvard is the [co-]controller of your Personal Information collected for this study. By agreeing to this Addendum, you consent to the study team\'s use and processing of your Personal Information for the purpose of this study. The study team, and those working with the study team, will process your Personal Information in compliance with applicable Law.',
           'If you withdraw your permission, you will no longer be able to participate in the study and no new information will be collected about you or from you by the study team. However, if you withdraw, the study team will retain the Personal Information collected prior to your withdrawal and may use it to guarantee the integrity of the study and for any other purpose permitted under the Law. Withdrawal will not affect the lawfulness of the data processing that occurred prior to your withdrawal.',
           'By agreeing below, you consent to the transfer of your Personal Information to countries other than your country, including the United States. The study team may process your Personal Information in countries other than your country. These countries may have established standards and practices for managing Personal Information that differ from those of your country. Regulators in your country may have determined that the data protection laws of the US and certain other countries do not protect Personal Information to the same extent as your country. Harvard, and those identified in this Addendum as working with Harvard, will take steps to maintain the confidentiality of your Personal Information.',
           'If your Personal Information is transferred from your country to other countries that have not yet been found by your local regulators to meet requirements for protection of Personal Information, the study team will utilize the appropriate standard contractual clauses to protect your Personal Information. A copy of these clauses is available by contacting EEAsubjectrequest@harvard.edu ]'
@@ -433,7 +375,7 @@ Transitory wording between part 1 & part 2:
         ],
         extraUse: 'The study team may also use your Personal Information to',
         extraBullets: [
-          '[Publish summaries of the study results in academic journals, on the internet, or at educational meetings of other researchers. You will not be directly identified in any publication or report of the study. However, some journal representatives may need access to your Coded Information to verify the study results and ensure the research meets the journal’s quality standards. Also, journals may require that certain data from the study that does not directly identify you (i.e., de-identified survey responses) be made available to other researchers for further research projects.',
+          '[Publish summaries of the study results in academic journals, on the internet, or at educational meetings of other researchers. You will not be directly identified in any publication or report of the study. However, some journal representatives may need access to your Coded Information to verify the study results and ensure the research meets the journal\'s quality standards. Also, journals may require that certain data from the study that does not directly identify you (i.e., de-identified survey responses) be made available to other researchers for further research projects.',
           'Improve the quality, design, and safety of this study and other research studies.',
           'Conduct additional studies with the data collected in this study to advance scientific research and public health. At this time, we do not know the specific details of these future research projects. If your Personal Information is used for additional studies, specific safeguards will be used to protect the data, which may include:',
           'Using only information from which your direct identifiers have been removed instead of information that readily identifies you.',
@@ -444,7 +386,7 @@ Transitory wording between part 1 & part 2:
         ],
         retention: 'Your Personal Information will not be used for further research. Harvard will retain your Personal Information (including your "Coded Information", meaning your Personal Information that has been modified so that your identifiers, such as your name, email, personal attributes, or other identifiable responses, have been replaced by a number, letter, symbol, or combination thereof, to better secure the information) for the period necessary to fulfill the purposes described in this consent, unless a different retention period is required or permitted by law.',
         anonymize: 'The study team plans to anonymize your Personal Information no later than 1 day after completing your interview. Once your Personal Information has been anonymized, the information cannot be used to identify you personally, and such anonymized information may be used for further research. It also may not be possible for the study team to distinguish your anonymized information from that of other participants, as the identifying data will have been removed.]',
-        rightsIntro: 'Under your country’s Law, you may have certain rights related to your Personal Information collected under this study. If you wish to exercise those rights, please contact EEAdatasubjectrequest@harvard.edu. Please note that under your country’s Law, you may also have the right to make a complaint to your country’s data protection authority, if you so choose.',
+        rightsIntro: 'Under your country\'s Law, you may have certain rights related to your Personal Information collected under this study. If you wish to exercise those rights, please contact EEAdatasubjectrequest@harvard.edu. Please note that under your country\'s Law, you may also have the right to make a complaint to your country\'s data protection authority, if you so choose.',
         gdpr: {
           intro: 'Under GDPR:',
           bullets: [
@@ -493,7 +435,7 @@ Transitory wording between part 1 & part 2:
         },
         founderInput: {
           title: "Founder perspective",
-          description: 'Use the prompts to capture the founder’s answers and add barriers.'
+          description: 'Use the prompts to capture the founder\'s answers and add barriers.'
         },
         consent: {
           title: 'Capture consent',
@@ -553,7 +495,7 @@ Transitory wording between part 1 & part 2:
   },
   zh: {
     common: {
-      appTitle: '创始人问题分析',
+      appTitle: 'GRADE',
       guide: '指南',
       beta: '测试版',
       loadJson: '导入 JSON',
@@ -577,7 +519,6 @@ Transitory wording between part 1 & part 2:
       founderInput: '创始人输入',
       baselineReview: '审核基线',
       transcriptUpload: '访谈后',
-      problemCharacteristics: '问题特征',
       part2Comparison: '反馈'
     },
     errors: {
@@ -733,63 +674,6 @@ Transitory wording between part 1 & part 2:
       addBarrier: '+ 添加障碍',
       back: '返回',
       confirm: '继续 →'
-    },
-    problemCharacteristics: {
-      title: '4. 问题特征',
-      description: '现在你已经写完问题陈述，我们希望进一步了解你的创业公司所解决问题的性质。下面的问题聚焦于客户问题的不同维度。',
-      questions: {
-        informationIntensity: {
-          title: '信息复杂度',
-          prompt: '当客户面对这个问题时，需要整合多少信息才能把它处理好？',
-          options: [
-            '低：只有少数几个清晰因素，大多数人自己就能判断',
-            '高：涉及许多相互影响的因素，没有更深知识时很容易出错'
-          ]
-        },
-        frequency: {
-          title: '出现频率',
-          prompt: '这个问题在客户的生活或工作中有多常见？',
-          options: [
-            '偶发：根据具体需求或情境不规律地出现，没有可预测的时间表',
-            '反复出现：经常、持续，或按可预测的周期出现（例如每天、每周、每月）'
-          ]
-        },
-        stakes: {
-          title: '后果强度',
-          prompt: '如果这个问题处理不好，客户真正面临的风险是什么？',
-          options: [
-            '低：主要是不便或小损失，比较容易恢复',
-            '高：会对财务、健康、安全或长期结果造成实质影响'
-          ]
-        },
-        expertDependency: {
-          title: '对专家的依赖',
-          prompt: '在你的解决方案出现之前，客户能否现实地靠自己处理这个问题，还是通常需要专家介入？',
-          options: [
-            '可自助：客户凭借基础工具或知识就能自己处理',
-            '需要专家：通常需要专家参与，才能得到较好或安全的结果'
-          ]
-        },
-        needsFulfilled: {
-          title: '满足的需求',
-          prompt: '当客户使用你的产品/解决方案时，他们最终希望获得以下哪些内容？',
-          options: [
-            '知识',
-            '物质商品',
-            '服务',
-            '体验',
-            '效率'
-          ]
-        },
-        problemDiscovery: {
-          title: '问题发现过程',
-          prompt: '你能介绍一下，是如何发现你现在正在为客户解决的这个问题的吗？'
-        }
-      },
-      buttons: {
-        back: '返回',
-        continue: '继续 →'
-      }
     },
     transcript: {
       title: '4. 访谈后（上传访谈记录）',

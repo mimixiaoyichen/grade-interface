@@ -15,6 +15,7 @@ interface Part2ComparisonProps {
   onBack: () => void;
   onExportJson: () => void;
   onImportJson?: () => void;
+  highlightExport?: boolean;
 }
 
 const Part2Comparison: React.FC<Part2ComparisonProps> = ({
@@ -28,7 +29,8 @@ const Part2Comparison: React.FC<Part2ComparisonProps> = ({
   onConfirmSupportCheck,
   onBack,
   onExportJson,
-  onImportJson
+  onImportJson,
+  highlightExport
 }) => {
   const t = useT().part2;
   return (
@@ -52,7 +54,7 @@ const Part2Comparison: React.FC<Part2ComparisonProps> = ({
           )}
           <button
             onClick={onExportJson}
-            className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-black font-bold"
+            className={`bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-black font-bold${highlightExport ? ' animate-pulse ring-2 ring-purple-400' : ''}`}
             data-tour-id="tour-comparison-export"
           >
             {t.downloadJson}

@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import SplitVerifier from './components/SplitVerifier';
 import BaselineReview from './components/BaselineReview';
 import ComparisonTable from './components/ComparisonTable';
@@ -42,7 +42,7 @@ import {
 } from './utils/tutorialData';
 import { getTranslation, TranslationContext, useT, LocaleKey } from './utils/strings';
 import { stripBarrierLeadIn, stripBarrierLeadInList } from './utils/barriers';
-import { INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK } from './utils/featureFlags';
+import { TUTORIAL_ENABLED } from './utils/featureFlags';
 import {
   createShuffledBaselineReviewFieldOrder,
   resolveBaselineReviewFieldOrder,
@@ -188,7 +188,7 @@ function App() {
   const [baselineReviewTrigger, setBaselineReviewTrigger] = useState<number>(0);
 
   useEffect(() => {
-    startTour();
+    if (TUTORIAL_ENABLED) startTour();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -235,7 +235,7 @@ function App() {
     setIsConsentOpen(false);
   }, []);
 
-  const startTour = (tutCase?: TutorialCase) => {
+  const startTour = (tutCase?: TutorialCase, startIndex: number = 0) => {
     if (isTourOpen) return;
     if (tutCase) {
       tourSampleRef.current = tutCase;
@@ -314,13 +314,25 @@ function App() {
     setPublicInfoTrigger(0);
     setBaselineReviewTrigger(0);
     setStep(WizardStep.PUBLIC_INFO);
-    setTourStepIndex(0);
+    setTourStepIndex(startIndex);
   };
 
+  // X button / nav close — just hide the panel, keep synthetic data in place.
   const closeTour = () => {
+    setIsTourOpen(false);
+  };
+
+  // Re-open a previously closed tour at the same step/data — no reset.
+  const reopenTour = () => {
+    setIsTourOpen(true);
+  };
+
+  // Finish / Skip — restore pre-tour snapshot and return to dashboard.
+  const finishTour = () => {
     const snapshot = tourSnapshotRef.current;
     setIsTourOpen(false);
     setTourStepIndex(0);
+    setShowDashboard(true);
     if (!snapshot) return;
     setStep(snapshot.step);
     setStatus(snapshot.status);
@@ -367,13 +379,37 @@ function App() {
     setTourStepIndex((idx) => Math.max(idx - 1, 0));
   };
 
+  // Navigate to a wizard step and scroll to top after the next paint.
+  const navigateTo = (newStep: WizardStep) => {
+    setStep(newStep);
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+  };
+
   useEffect(() => {
     if (!isTourOpen) return;
     const current = tourSteps[tourStepIndex];
     if (current) {
       setStep(current.wizardStep);
+      if (current.id === 'tut-public-info' || current.id === 'tut-consent') window.scrollTo({ top: 0 });
     }
   }, [isTourOpen, tourSteps, tourStepIndex]);
+
+  // Auto-load demo data when navigating to a step that needs it.
+  // Runs only when tourStepIndex changes, not on every render.
+  const stepCaseLoadedRef = useRef(stepCaseLoaded);
+  stepCaseLoadedRef.current = stepCaseLoaded;
+
+  useEffect(() => {
+    if (!isTourOpen) return;
+    const current = tourSteps[tourStepIndex];
+    if (!current) return;
+    const autoLoadSteps = new Set(['tut-baseline', 'tut-founder-input', 'tut-baseline-review', 'tut-transcript', 'tut-split', 'tut-split-confirm', 'tut-comparison']);
+    if (autoLoadSteps.has(current.id) && !stepCaseLoadedRef.current[current.id]) {
+      const caseToLoad = tourSampleRef.current ?? TUTORIAL_CASES[0];
+      handleLoadStepData(current.id, caseToLoad);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTourOpen, tourStepIndex]);
 
   useEffect(() => {
     if (!isTourOpen) return;
@@ -498,6 +534,9 @@ function App() {
       setBaselineGpt52Layer(null);
       setCompanyUrl(sample.companyUrl);
       setPitchbookInfo(sample.pitchbookInfo);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        window.scrollTo({ top: document.body.scrollHeight });
+      }));
     } else if (stepId === 'tut-founder-input') {
       setFounderInput(sample.founderInput);
       setCompanyUrl(sample.companyUrl);
@@ -507,6 +546,7 @@ function App() {
       setBaselineSource(combinedSource);
       setHasFetchedPublicInfo(true);
       setPublicInfo(sample.publicInfo);
+      setBaselineStatement(sample.baseline);
       setBaselineGenerated(sample.baseline);
       setBaselineLLM(sample.baseline);
       setBaselineLLMRaw4o(sample.baseline);
@@ -779,13 +819,13 @@ function App() {
        return setErrorMsg(errors.founderInputMissing);
     }
     setErrorMsg('');
-    setStep(WizardStep.BASELINE_REVIEW);
-    setStatus(AppStatus.IDLE); 
+    navigateTo(WizardStep.BASELINE_REVIEW);
+    setStatus(AppStatus.IDLE);
   };
 
   // Step 3 -> Step 4
   const confirmBaseline = () => {
-    setStep(WizardStep.TRANSCRIPT_UPLOAD);
+    navigateTo(WizardStep.TRANSCRIPT_UPLOAD);
   };
 
   // Step 4 Split Logic
@@ -833,7 +873,6 @@ function App() {
         Customer: ${founderInput.CUSTOMER_SEGMENT}
         Context: ${founderInput.LIFE_BUSINESS_CONTEXT}
         Goals: ${founderInput.JOB_TO_BE_DONE}
-        ${INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK ? `Barriers: ${(founderInput.SPECIFIC_BARRIERS || []).join('; ')}` : ''}
       `;
 
       const combinedInfo = getCombinedPublicInfo();
@@ -858,9 +897,7 @@ function App() {
         customers: raw.customers.map((i, idx) => ({ ...i, id: `${prefix}-c-${idx}`, isVerified: false, userNotes: '' })),
         contexts: raw.contexts.map((i, idx) => ({ ...i, id: `${prefix}-ctx-${idx}`, isVerified: false, userNotes: '' })),
         goals: raw.goals.map((i, idx) => ({ ...i, id: `${prefix}-g-${idx}`, isVerified: false, userNotes: '' })),
-        barriers: INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
-          ? raw.barriers.map((i, idx) => ({ ...i, id: `${prefix}-b-${idx}`, isVerified: false, userNotes: '' }))
-          : [],
+        barriers: [],
         draftStatement: raw.finalStatement
       });
 
@@ -873,7 +910,7 @@ function App() {
         getComponentText(baselineStatement, component);
 
       const rowsWithIds = comparisonResult.value.rows
-        .filter((r) => INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK || r.component !== 'Barrier')
+        .filter((r) => r.component !== 'Barrier')
         .map((r, i) => ({
           ...r,
           baselineText: getGeneratedComponentText(r.component) || r.baselineText,
@@ -884,9 +921,7 @@ function App() {
           reviewerDecision: undefined
         }));
 
-      const requiredComponents: ComparisonRow['component'][] = INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
-        ? ['Solution', 'Customer', 'Context', 'Goal', 'Barrier']
-        : ['Solution', 'Customer', 'Context', 'Goal'];
+      const requiredComponents: ComparisonRow['component'][] = ['Solution', 'Customer', 'Context', 'Goal'];
       const componentsPresent = new Set(rowsWithIds.map((r) => r.component));
 
       const buildFallbackRow = (component: ComparisonRow['component']): ComparisonRow => ({
@@ -1025,11 +1060,7 @@ function App() {
 
     const normalizeComparisonRows = (rawRows: any[]): ComparisonRow[] => {
       if (!Array.isArray(rawRows)) return [];
-      const allowedComponents = new Set(
-        INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK
-          ? ['Solution', 'Customer', 'Context', 'Goal', 'Barrier']
-          : ['Solution', 'Customer', 'Context', 'Goal']
-      );
+      const allowedComponents = new Set(['Solution', 'Customer', 'Context', 'Goal']);
       const allowedTypes = new Set(['Modification', 'Omission', 'Hallucination', 'Confirmation']);
       return rawRows.map((row, idx) => {
         if (!row || !allowedComponents.has(row.component)) return null;
@@ -1412,7 +1443,9 @@ function App() {
           <div className="flex items-center gap-3">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
              <div>
-               <h1 className="text-lg sm:text-xl font-bold text-gray-800 leading-tight">{common.appTitle}</h1>
+               <h1 className="text-lg sm:text-xl font-bold text-gray-800 leading-tight">
+                 <strong>G</strong>rounded <strong>R</strong>esearch with <strong>A</strong>I-assisted <strong>D</strong>iscovery and <strong>E</strong>xpert Validation (<strong>GRADE</strong>)
+               </h1>
                <div className="flex items-center gap-2 mt-1">
                  <span className="bg-blue-100 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">{common.beta}</span>
                  <span className="text-[12px] font-semibold text-gray-600">{`${common.stepLabel} ${currentStepIndex + 1} / ${totalSteps}`}</span>
@@ -1420,6 +1453,18 @@ function App() {
              </div>
           </div>
           <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+             {TUTORIAL_ENABLED && (
+               <button
+                 onClick={() => {
+                   if (isTourOpen) { closeTour(); }
+                   else if (tourSnapshotRef.current) { reopenTour(); }
+                   else { startTour(); }
+                 }}
+                 className={`text-xs sm:text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded shadow-sm relative ${!isTourOpen ? 'animate-pulse' : ''}`}
+               >
+                 {isTourOpen ? '× Tutorial' : 'Tutorial →'}
+               </button>
+             )}
              <button
                onClick={() => {
                  setIsGuideOpen(true);
@@ -1443,7 +1488,8 @@ function App() {
                onClick={handleExportJson}
                disabled={exportBlockedBecauseMissingPart2}
                title={exportBlockedBecauseMissingPart2 ? errors.exportPart2Missing : undefined}
-               className="text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+               data-tour-id="tour-download-json"
+               className={`text-xs font-semibold text-gray-700 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ${isTourOpen && tourSteps[tourStepIndex]?.id === 'tut-export' ? 'animate-pulse ring-2 ring-purple-400' : ''}`}
              >
                {common.downloadJson}
              </button>
@@ -1485,24 +1531,27 @@ function App() {
           founderDataConsent={founderDataConsent}
           onToggleDataConsent={setFounderDataConsent}
         />
-        <TutorialSidebar
-          open={isTourOpen}
-          steps={tourSteps}
-          currentIndex={tourStepIndex}
-          onClose={closeTour}
-          onNext={handleTourNext}
-          onPrev={handleTourPrev}
-          onLoadStepData={handleLoadStepData}
-          cases={TUTORIAL_CASES}
-          stepCaseLoaded={stepCaseLoaded}
-          onReturnToDashboard={() => setShowDashboard(true)}
-        />
-        {showDashboard && (
+        {TUTORIAL_ENABLED && (
+          <TutorialSidebar
+            open={isTourOpen}
+            steps={tourSteps}
+            currentIndex={tourStepIndex}
+            onClose={closeTour}
+            onFinish={finishTour}
+            onNext={handleTourNext}
+            onPrev={handleTourPrev}
+            onLoadStepData={handleLoadStepData}
+            cases={TUTORIAL_CASES}
+            stepCaseLoaded={stepCaseLoaded}
+            onReturnToDashboard={() => { setIsTourOpen(false); setShowDashboard(true); }}
+          />
+        )}
+        {TUTORIAL_ENABLED && showDashboard && (
           <CaseDashboard
             cases={TUTORIAL_CASES}
             onSelectCase={(tutCase) => {
               setShowDashboard(false);
-              startTour(tutCase);
+              startTour(tutCase, 1);
             }}
             onSkip={() => setShowDashboard(false)}
           />
@@ -1512,7 +1561,7 @@ function App() {
             steps={visibleSteps}
             currentStep={step}
             isStepAvailable={stepAvailability}
-            onStepSelect={setStep}
+            onStepSelect={navigateTo}
           />
         </div>
         
@@ -1531,12 +1580,6 @@ function App() {
               <div>
                 <h2 className="text-2xl font-bold mb-1">{t.publicInfo.title}</h2>
                 </div>
-              <button
-                onClick={() => isTourOpen ? closeTour() : startTour()}
-                className="text-xs font-semibold text-purple-700 border border-purple-200 px-3 py-2 rounded-lg hover:bg-purple-50 transition-colors"
-              >
-                {isTourOpen ? '× Close tutorial' : 'Tutorial →'}
-              </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
@@ -1588,7 +1631,7 @@ function App() {
               <div className="flex justify-end gap-3">
                 {baselineStatement && (
                   <button 
-                    onClick={() => setStep(WizardStep.FOUNDER_INPUT)}
+                    onClick={() => navigateTo(WizardStep.FOUNDER_INPUT)}
                     className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-4 py-2 rounded border border-gray-200"
                   >
                     {t.publicInfo.buttons.continue}
@@ -1659,7 +1702,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setIsConsentOpen(true)}
-                className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-emerald-700"
+                className={`bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-emerald-700 ${isTourOpen && tourSteps[tourStepIndex]?.id === 'tut-consent' ? 'animate-pulse' : ''}`}
                 data-tour-id="tour-consent"
               >
                 {t.founder.consent}
@@ -1780,7 +1823,7 @@ function App() {
           <div className="flex justify-between">
             <button
               type="button"
-              onClick={() => setStep(WizardStep.PUBLIC_INFO)}
+              onClick={() => navigateTo(WizardStep.PUBLIC_INFO)}
               className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded"
             >
               {t.founder.back}
@@ -1808,7 +1851,7 @@ function App() {
                 setComparisonRows([]);
               }}
               onNext={confirmBaseline}
-              onBack={() => setStep(WizardStep.FOUNDER_INPUT)}
+              onBack={() => navigateTo(WizardStep.FOUNDER_INPUT)}
             />
           </div>
         )}
@@ -1872,7 +1915,7 @@ function App() {
                   data-tour-id="tour-transcript-editor"
                 />
                 <div className="flex justify-between">
-                  <button onClick={() => setStep(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.transcript.back}</button>
+                  <button onClick={() => navigateTo(WizardStep.BASELINE_REVIEW)} className="text-sm font-semibold text-gray-600 hover:text-gray-800 px-3 py-2 rounded">{t.transcript.back}</button>
                   <button 
                     onClick={startSplit}
                     disabled={status === AppStatus.PROCESSING || !transcript || isTranscribingAudio}
@@ -1896,6 +1939,7 @@ function App() {
 
         {/* STEP 6: PART 2 COMPARISON (Table) */}
         {step === WizardStep.PART2_COMPARISON && (
+          <div data-tour-id="tour-comparison">
           <Part2Comparison
             comparisonRows={comparisonRows}
             onUpdateRows={setComparisonRows}
@@ -1905,10 +1949,12 @@ function App() {
             onAddSupportItem={addSupportItem}
             onChangeSupportItem={updateSupportItem}
             onConfirmSupportCheck={handleSupportConfirm}
-            onBack={() => setStep(WizardStep.TRANSCRIPT_UPLOAD)}
+            onBack={() => navigateTo(WizardStep.TRANSCRIPT_UPLOAD)}
             onExportJson={handleExportJson}
             onImportJson={triggerImportJson}
+            highlightExport={isTourOpen && tourSteps[tourStepIndex]?.id === 'tut-export'}
           />
+          </div>
         )}
 
       </main>

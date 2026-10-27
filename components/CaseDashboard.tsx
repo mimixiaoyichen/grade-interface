@@ -9,7 +9,7 @@ interface CaseDashboardProps {
 
 const LABEL_CONFIG = {
   'clean': {
-    tag: 'Clean baseline',
+    tag: 'Confirmations & Modifications',
     tagColor: 'bg-emerald-100 text-emerald-700',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,17 +71,16 @@ const CaseDashboard: React.FC<CaseDashboardProps> = ({ cases, onSelectCase, onSk
           <span className="bg-purple-100 text-purple-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wide">
             Tutorial
           </span>
-          <span className="text-xs text-gray-400">Demo data — no API calls</span>
         </div>
 
         <h1 className="text-3xl font-bold text-gray-900 mb-2 leading-tight">
-          Founder Problem Analyst
+          GRADE
         </h1>
-        <p className="text-sm text-gray-600 mb-2 leading-relaxed max-w-lg">
-          A structured interview tool for capturing how founders define the problem their startup solves.
+        <p className="text-xs text-gray-400 mb-2 font-medium tracking-wide">
+          Grounded Research with AI-assisted Discovery and Expert Validation
         </p>
         <p className="text-sm text-gray-500 mb-8 leading-relaxed max-w-lg">
-          Choose a demo case to walk through. Both cases use the same domain — freelancer invoicing — so you can see how the same tool performs on strong vs. weak public information.
+          Choose a demo case to walk through. Both cases use the same domain (freelancer invoicing) so you can compare a well-aligned extraction with one that misses key details.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
@@ -96,12 +95,13 @@ const CaseDashboard: React.FC<CaseDashboardProps> = ({ cases, onSelectCase, onSk
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        <div className="grid grid-cols-4 gap-3 mb-10">
+        <div className="grid grid-cols-5 gap-3 mb-10">
           {[
-            { n: '1', label: 'Public info', desc: 'Gather sources' },
-            { n: '2', label: 'Interview', desc: 'Founder answers' },
-            { n: '3', label: 'Transcript', desc: 'Upload & split' },
-            { n: '4', label: 'Compare', desc: 'Review & export' }
+            { n: '1', label: 'Retrieve', desc: 'Gather evidence' },
+            { n: '2', label: 'Construct', desc: 'Candidate profile' },
+            { n: '3', label: 'Blind Elicitation', desc: "Subject's account" },
+            { n: '4', label: 'Reveal and Correct', desc: 'Compare & refine' },
+            { n: '5', label: 'Validate', desc: 'Evidence & corrections' }
           ].map((item) => (
             <div key={item.n} className="flex flex-col items-center text-center gap-1.5">
               <span className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs">

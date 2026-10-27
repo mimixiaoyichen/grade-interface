@@ -1,1 +1,1 @@
-export const INCLUDE_BARRIERS_IN_REVIEW_AND_FEEDBACK = false;
+export const TUTORIAL_ENABLED = true;

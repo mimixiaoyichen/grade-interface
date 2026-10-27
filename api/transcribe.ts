@@ -129,7 +129,7 @@ const transcribeBuffer = async (buffer: Buffer, fileName: string, modelId: strin
 
 const deleteUploadedBlob = async (fileUrl?: string | null) => {
   if (!fileUrl) return;
-  const token = process.env.BLOB_READ_WRITE_TOKEN || process.env.VITE_BLOB_READ_WRITE_TOKEN;
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) {
     console.warn('Skipping uploaded audio blob cleanup: BLOB_READ_WRITE_TOKEN is missing.');
     return;
