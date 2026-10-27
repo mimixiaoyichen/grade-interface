@@ -141,7 +141,7 @@ org-science-tool/
 ### Local Development
 
 ```bash
-git clone https://github.com/mimixiaoyichen/grade-tool.git
+git clone https://github.com/mimixiaoyichen/grade-interface.git
 cd org-science-tool
 npm install
 ```
